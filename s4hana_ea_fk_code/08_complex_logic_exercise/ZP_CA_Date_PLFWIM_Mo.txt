@@ -1,0 +1,21 @@
+/* Freek Keijzer, myBrand, 12.08.2020
+See comments with ZP_CA_Date_PLFWIM
+--------------------------------------------------------
+Change log: 
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'CA: PerLtstVolWkInMnd for Mnth'
+@AbapCatalog.sqlViewName: 'ZPCADATEPLFWIMMO'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZP_CA_Date_PLFWIM_Mo as select from ZB_CA_Date_PLFWIM
+{
+    YearMonth,
+    max(YearWeek) as YearWeek,
+    '1' as dummy
+}
+where DaysLeftInMonthMinusWeek >= 0
+group by YearMonth

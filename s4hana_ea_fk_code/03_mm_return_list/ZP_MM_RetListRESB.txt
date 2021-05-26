@@ -1,0 +1,48 @@
+/* Freek Keijzer, myBrand, 17.01.2021
+View for key figures Reservations.
+Dataset for Delivery Item is being aggregated to level Reservation Item.
+For determination "Warehouse EWM/IM?" in next view, this table is joined in this view:
+T320 - "Assignment IM Storage Location to WM Warehouse Number"
+--------------------------------------------------------
+Change-log:
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'MM: Data from RESB for Return List'
+@AbapCatalog.sqlViewName: 'ZPMMRETLISTRESB'
+
+@VDM.viewType: #COMPOSITE
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZP_MM_RetListRESB as select from ZB_MM_RetListRESB as _Resb
+  inner join ZP_MM_LIPSResAg as _Ag
+    on _Ag.rsnum    = _Resb.rsnum and
+       _Ag.rspos    = _Resb.rspos and
+       _Ag.VbelnPos = _Resb.VbelnPos
+  left outer join t320
+    on t320.werks = _Resb.werks and
+       t320.lgort = _Resb.lgort
+{
+key _Resb.rsnum,                                 //Reservation Number (resb.rsnum)
+key _Resb.rspos,                                 //Reservation Item (resb.rspos)
+    _Resb.werks,                                 //Plant (resb.werks)
+    _Resb.lgort,                                 //Storage Location (resb.lgort)
+    _Resb.aufnr,                                 //Order Number (resb.aufnr)
+    _Resb.xloek,                                 //Item is deleted (resb.xloek)
+    _Resb.bwart,                                 //Movement type inventory management (resb.bwart)
+    _Resb.kzear,                                 //Final issue for this reservation (resb.kzear)
+    _Resb.matnr,                                 //Material Number (resb.matnr)
+    _Resb.bdmng,                                 //Requirement Quantity (resb.bdmng)
+    _Resb.meins,                                 //Base Unit of Measure (resb.meins)
+    _Resb.enmng,                                 //Quantity withdrawn (resb.enmng)
+    _Resb.vbeln,                                 //Delivery (lips.vbeln)
+    _Resb.vbelp,                                 //Delivery Item (lips.posnr)
+    _Resb.bwtar,                                 //Valuation Type (lips.bwtar)
+    _Resb.spe_gen_elikz,                         //"Delivery Completed" Indicator (lips.spe_gen_elikz)
+    _Resb.VbelnPos,                              //Concatenated Delivery Number+Item
+    _Resb.Counter as CounterRes,                 //Number of Reservation Items
+    _Ag.CounterDel,                              //Number of Delivery Items
+    t320.werks as werks_t320,                    //IM Plant assigned to WM Warehouse (t320.werks)
+    t320.lgort as lgort_t320                     //IM Storage Location assigned to WM Warehouse (t320.lgort)
+}

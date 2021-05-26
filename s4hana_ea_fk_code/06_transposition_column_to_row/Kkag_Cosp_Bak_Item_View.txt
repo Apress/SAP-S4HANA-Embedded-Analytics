@@ -1,0 +1,96 @@
+@AbapCatalog.sqlViewName: 'KKAG_COSPBAK_ITM'
+@EndUserText.label: 'Itemization of COSP_BAK'
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@ClientDependent: true
+//@ClientHandling.algorithm: #SESSION_VARIABLE
+@Metadata.ignorePropagatedAnnotations: true
+@ObjectModel.usageType.serviceQuality: #P
+
+//Used for optimization options 
+//- 03, DDL View: Import as Necessary
+//- 04, DDL View: Pre-import Everything
+//Used in view Kkag_Cos_Item_View
+//Selects from cosp_bak
+
+define view Kkag_Cosp_Bak_Item_View as 
+select 
+  mandt, objnr, gjahr, wrttp, lednr, versn, kstar, hrkft, vrgng, vbund, pargb, beknz, twaer, meinh, beltp, 
+  '001' as perio, wkg001 as wkgbtr, wkf001 as wkfbtr, wog001 as wogbtr, wtg001 as wtgbtr, meg001 as megbtr                     
+  from cosp_bak where wkg001 != 0 or wkf001 != 0 or wog001 != 0 or wtg001 != 0 or meg001 != 0
+    
+union all select 
+  mandt, objnr, gjahr, wrttp, lednr, versn, kstar, hrkft, vrgng, vbund, pargb, beknz, twaer, meinh, beltp, 
+  '002' as perio, wkg002 as wkgbtr, wkf002 as wkfbtr, wog002 as wogbtr, wtg002 as wtgbtr, meg002 as megbtr               
+  from cosp_bak where wkg002 != 0 or wkf002 != 0 or wog002 != 0 or wtg002 != 0 or meg002 != 0
+     
+union all select 
+  mandt, objnr, gjahr, wrttp, lednr, versn, kstar, hrkft, vrgng, vbund, pargb, beknz, twaer, meinh, beltp, 
+  '003' as perio, wkg003 as wkgbtr, wkf003 as wkfbtr, wog003 as wogbtr, wtg003 as wtgbtr, meg003 as megbtr               
+  from cosp_bak where wkg003 != 0 or wkf003 != 0 or wog003 != 0 or wtg003 != 0 or meg003 != 0 
+    
+union all select 
+  mandt, objnr, gjahr, wrttp, lednr, versn, kstar, hrkft, vrgng, vbund, pargb, beknz, twaer, meinh, beltp, 
+  '004' as perio, wkg004 as wkgbtr, wkf004 as wkfbtr, wog004 as wogbtr, wtg004 as wtgbtr, meg004 as megbtr               
+  from cosp_bak where wkg004 != 0 or wkf004 != 0 or wog004 != 0 or wtg004 != 0 or meg004 != 0
+    
+union all select 
+  mandt, objnr, gjahr, wrttp, lednr, versn, kstar, hrkft, vrgng, vbund, pargb, beknz, twaer, meinh, beltp, 
+  '005' as perio, wkg005 as wkgbtr, wkf005 as wkfbtr, wog005 as wogbtr, wtg005 as wtgbtr, meg005 as megbtr                
+  from cosp_bak where wkg005 != 0 or wkf005 != 0 or wog005 != 0 or wtg005 != 0 or meg005 != 0
+    
+union all select 
+  mandt, objnr, gjahr, wrttp, lednr, versn, kstar, hrkft, vrgng, vbund, pargb, beknz, twaer, meinh, beltp, 
+  '006' as perio, wkg006 as wkgbtr, wkf006 as wkfbtr, wog006 as wogbtr, wtg006 as wtgbtr, meg006 as megbtr               
+  from cosp_bak where wkg006 != 0 or wkf006 != 0 or wog006 != 0 or wtg006 != 0 or meg006 != 0 
+    
+union all select 
+  mandt, objnr, gjahr, wrttp, lednr, versn, kstar, hrkft, vrgng, vbund, pargb, beknz, twaer, meinh, beltp, 
+  '007' as perio, wkg007 as wkgbtr, wkf007 as wkfbtr, wog007 as wogbtr, wtg007 as wtgbtr, meg007 as megbtr               
+  from cosp_bak where wkg007 != 0 or wkf007 != 0 or wog007 != 0 or wtg007 != 0 or meg007 != 0
+    
+union all select 
+  mandt, objnr, gjahr, wrttp, lednr, versn, kstar, hrkft, vrgng, vbund, pargb, beknz, twaer, meinh, beltp, 
+  '008' as perio, wkg008 as wkgbtr, wkf008 as wkfbtr, wog008 as wogbtr, wtg008 as wtgbtr, meg008 as megbtr               
+  from cosp_bak where wkg008 != 0 or wkf008 != 0 or wog008 != 0 or wtg008 != 0 or meg008 != 0
+    
+union all select 
+  mandt, objnr, gjahr, wrttp, lednr, versn, kstar, hrkft, vrgng, vbund, pargb, beknz, twaer, meinh, beltp, 
+  '009' as perio, wkg009 as wkgbtr, wkf009 as wkfbtr, wog009 as wogbtr, wtg009 as wtgbtr, meg009 as megbtr               
+  from cosp_bak where wkg009 != 0 or wkf009 != 0 or wog009 != 0 or wtg009 != 0 or meg009 != 0
+    
+union all select 
+  mandt, objnr, gjahr, wrttp, lednr, versn, kstar, hrkft, vrgng, vbund, pargb, beknz, twaer, meinh, beltp,
+  '010' as perio, wkg010 as wkgbtr, wkf010 as wkfbtr, wog010 as wogbtr, wtg010 as wtgbtr, meg010 as megbtr               
+  from cosp_bak where wkg010 != 0 or wkf010 != 0 or wog010 != 0 or wtg010 != 0 or meg010 != 0   
+    
+union all select 
+  mandt, objnr, gjahr, wrttp, lednr, versn, kstar, hrkft, vrgng, vbund, pargb, beknz, twaer, meinh, beltp,
+  '011' as perio, wkg011 as wkgbtr, wkf011 as wkfbtr, wog011 as wogbtr, wtg011 as wtgbtr, meg011 as megbtr                        
+  from cosp_bak where wkg011 != 0 or wkf011 != 0 or wog011 != 0 or wtg011 != 0 or meg011 != 0          
+    
+union all select 
+  mandt, objnr, gjahr, wrttp, lednr, versn, kstar, hrkft, vrgng, vbund, pargb, beknz, twaer, meinh, beltp,
+  '012' as perio, wkg012 as wkgbtr, wkf012 as wkfbtr, wog012 as wogbtr, wtg012 as wtgbtr, meg012 as megbtr                          
+  from cosp_bak where wkg012 != 0 or wkf012 != 0 or wog012 != 0 or wtg012 != 0 or meg012 != 0
+  
+union all select 
+  mandt, objnr, gjahr, wrttp, lednr, versn, kstar, hrkft, vrgng, vbund, pargb, beknz, twaer, meinh, beltp,
+  '013' as perio, wkg013 as wkgbtr, wkf013 as wkfbtr, wog013 as wogbtr, wtg013 as wtgbtr, meg013 as megbtr                          
+  from cosp_bak where wkg013 != 0 or wkf013 != 0 or wog013 != 0 or wtg013 != 0 or meg013 != 0      
+  
+union all select 
+  mandt, objnr, gjahr, wrttp, lednr, versn, kstar, hrkft, vrgng, vbund, pargb, beknz, twaer, meinh, beltp,
+  '014' as perio, wkg014 as wkgbtr, wkf014 as wkfbtr, wog014 as wogbtr, wtg014 as wtgbtr, meg014 as megbtr                          
+  from cosp_bak where wkg014 != 0 or wkf014 != 0 or wog014 != 0 or wtg014 != 0 or meg014 != 0      
+  
+union all select 
+  mandt, objnr, gjahr, wrttp, lednr, versn, kstar, hrkft, vrgng, vbund, pargb, beknz, twaer, meinh, beltp,
+  '015' as perio, wkg015 as wkgbtr, wkf015 as wkfbtr, wog015 as wogbtr, wtg015 as wtgbtr, meg015 as megbtr                          
+  from cosp_bak where wkg015 != 0 or wkf015 != 0 or wog015 != 0 or wtg015 != 0 or meg015 != 0      
+  
+union all select 
+  mandt, objnr, gjahr, wrttp, lednr, versn, kstar, hrkft, vrgng, vbund, pargb, beknz, twaer, meinh, beltp,
+  '016' as perio, wkg016 as wkgbtr, wkf016 as wkfbtr, wog016 as wogbtr, wtg016 as wtgbtr, meg016 as megbtr                          
+  from cosp_bak where wkg016 != 0 or wkf016 != 0 or wog016 != 0 or wtg016 != 0 or meg016 != 0                    
+                  
+  ;

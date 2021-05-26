@@ -1,0 +1,37 @@
+/* Freek Keijzer, myBrand, 17.01.2021
+Basic view for key figures Deliveries.
+Business requirement: user-story 34567
+Source tables:
+LIPS - "SD document: Delivery: Item data"
+--------------------------------------------------------
+Change-log:
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'MM: Data from LIPS for Return List'
+@AbapCatalog.sqlViewName: 'ZBMMRETLISTLIPS'
+
+@VDM.viewType: #BASIC
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZB_MM_RetListLIPS as select from lips
+{
+    vbeln,                                       //Delivery (lips.vbeln)
+    posnr as vbelp,                              //Delivery Item (lips.posnr)
+    werks,                                       //Plant (lips.werks)
+    lgort,                                       //Storage Location (lips.lgort)
+    aufnr,                                       //Order Number (lips.aufnr)
+    bwart,                                       //Movement type inventory management (lips.bwart)
+    matnr,                                       //Material Number (lips.matnr)
+    bwtar,                                       //Valuation Type (lips.bwtar)
+    lgmng,                                       //Actual quantity delivered (lips.lgmng)
+    meins,                                       //Base Unit of Measure (lips.meins)
+    spe_gen_elikz,                               //"Delivery Completed" Indicator (lips.spe_gen_elikz)
+    rsnum,                                       //Reservation Number (lips.rsnum)
+    rspos,                                       //Reservation Item (lips.rspos)
+    wbsta,                                       //Goods Movement Status (lips.wbsta)
+    1 as Counter                                 //Counter (for Delivery Items)
+}
+where lips.bwart  = '912' and  //--Only Movement Type '912' = 'TR transfer in plant'
+      lips.aufnr != ''         //--Order must be filled

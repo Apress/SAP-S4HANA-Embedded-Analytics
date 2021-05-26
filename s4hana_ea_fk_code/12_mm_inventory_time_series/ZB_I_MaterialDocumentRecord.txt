@@ -1,0 +1,428 @@
+/* Freek Keijzer, myBrand, 21.09.2020
+Based on standard SAP view I_MaterialDocumentRecord.
+Enhancements:
+- Field StockChangeCategory is needed earlier to be used for time series
+- Generic counter for Material Document Items
+--------------------------------------------------------
+Change-log: 
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'MM: I_MaterialDocumentRecord (enh.)'
+@AbapCatalog.sqlViewName: 'ZIMATDOCREC'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZB_I_MaterialDocumentRecord
+      as select from matdoc
+
+  association [0..1] to I_Material                  as _Material                      on  $projection.Material = _Material.Material
+  association [0..1] to I_Material                  as _StockIdentifyingMaterial      on  $projection.StockIdentifyingMaterial = _StockIdentifyingMaterial.Material
+  association [0..1] to I_Material                  as _IssgOrRcvgMaterial            on  $projection.IssgOrRcvgMaterial = _IssgOrRcvgMaterial.Material
+
+  association [0..1] to I_Plant                     as _Plant                         on  $projection.Plant = _Plant.Plant
+  association [0..1] to I_Plant                     as _IssuingOrReceivingPlant       on  $projection.IssuingOrReceivingPlant = _IssuingOrReceivingPlant.Plant
+  association [0..1] to I_StorageLocation           as _StorageLocation               on  $projection.StorageLocation = _StorageLocation.StorageLocation
+                                                                                      and $projection.Plant           = _StorageLocation.Plant
+  association [0..1] to I_StorageLocation           as _IssuingOrReceivingStorageLoc  on  $projection.IssuingOrReceivingStorageLoc = _IssuingOrReceivingStorageLoc.StorageLocation
+                                                                                      and $projection.IssuingOrReceivingPlant      = _IssuingOrReceivingStorageLoc.Plant
+  association [0..1] to I_StorageLocation           as _StockIdfgStorageLocation      on  $projection.StockIdfgStorageLocation = _StockIdfgStorageLocation.StorageLocation
+                                                                                      and $projection.Plant                    = _StockIdfgStorageLocation.Plant
+
+  association [0..1] to I_Supplier                  as _Supplier                      on  $projection.Supplier = _Supplier.Supplier
+  association [0..1] to I_Supplier                  as _SpecialStockIdfgSupplier      on  $projection.SpecialStockIdfgSupplier = _SpecialStockIdfgSupplier.Supplier
+
+  association [0..1] to I_Customer                  as _Customer                      on  $projection.Customer = _Customer.Customer
+  association [0..1] to I_Customer                  as _SpecialStockIdfgCustomer      on  $projection.SpecialStockIdfgCustomer = _SpecialStockIdfgCustomer.Customer
+  
+  association [0..1] to I_SupplierCompanyByPlant    as _SupplierCompanyByPlant      on  $projection.Supplier = _SupplierCompanyByPlant.Supplier
+                                                                                    and $projection.Plant = _SupplierCompanyByPlant.Plant
+  association [0..1] to I_CustomerCompanyByPlant    as _CustomerCompanyByPlant      on  $projection.Customer = _CustomerCompanyByPlant.Customer
+                                                                                    and $projection.Plant    = _CustomerCompanyByPlant.Plant
+
+  association [0..1] to I_Supplier                  as _BPStockOwner                  on  $projection.StockOwner = _BPStockOwner.Supplier
+  association [0..1] to I_Supplier                  as _SpecialStockIdfgStockOwner    on  $projection.SpecialStockIdfgStockOwner = _SpecialStockIdfgStockOwner.Supplier
+
+  association [0..1] to I_InventorySpecialStockType as _InventorySpecialStockType     on  $projection.InventorySpecialStockType = _InventorySpecialStockType.InventorySpecialStockType
+  association [0..1] to I_InventorySpecialStockType as _IssgOrRcvgSpclStockInd        on  $projection.IssgOrRcvgSpclStockInd = _IssgOrRcvgSpclStockInd.InventorySpecialStockType
+  association [0..1] to I_InventoryStockType        as _InventoryStockType            on  $projection.InventoryStockType = _InventoryStockType.InventoryStockType
+  association [0..1] to I_InventoryStockType        as _IssuingOrReceivingStockType   on  $projection.IssuingOrReceivingStockType = _IssuingOrReceivingStockType.InventoryStockType
+  association [0..1] to I_InventoryValuationType    as _InventoryValuationType        on  $projection.InventoryValuationType = _InventoryValuationType.InventoryValuationType
+
+  association [0..1] to I_GoodsMovementType         as _GoodsMovementType             on  $projection.GoodsMovementType = _GoodsMovementType.GoodsMovementType
+  association [0..1] to I_PhysInvtryReasonCode      as _GoodsMovementReasonCode       on  $projection.GoodsMovementType = _GoodsMovementReasonCode.GoodsMovementType
+                                                                                      and $projection.GoodsMovementReasonCode = _GoodsMovementReasonCode.ReasonForPhysInvtryDifference
+                                                                                  
+  association [0..1] to I_DebitCreditCode           as _DebitCreditCode               on  $projection.DebitCreditCode = _DebitCreditCode.DebitCreditCode
+  association [0..1] to I_StockType                 as _StockType                     on  $projection.InventoryUsabilityCode = _StockType.StockType
+
+  association [0..1] to I_UnitOfMeasure             as _MaterialBaseUnit              on  $projection.MaterialBaseUnit = _MaterialBaseUnit.UnitOfMeasure
+  association [0..1] to I_UnitOfMeasure             as _EntryUnit                     on  $projection.EntryUnit = _EntryUnit.UnitOfMeasure
+
+  association [0..1] to I_GLAccount                 as _GLAccount                     on  $projection.GLAccount   = _GLAccount.GLAccount
+                                                                                      and $projection.CompanyCode = _GLAccount.CompanyCode
+
+  association [0..*] to I_CostCenter                as _CostCenter                    on  $projection.CostCenter      = _CostCenter.CostCenter
+                                                                                      and $projection.ControllingArea = _CostCenter.ControllingArea
+                                                                                      and $projection.PostingDate    <= _CostCenter.ValidityEndDate
+                                                                                      and $projection.PostingDate    >= _CostCenter.ValidityStartDate                                                                                    
+                                                                                       
+  --valid date range not included, multiple entries can be returned
+  association [0..*] to I_ProfitCenter              as _ProfitCenter                  on  $projection.ControllingArea = _ProfitCenter.ControllingArea
+                                                                                      and $projection.ProfitCenter    = _ProfitCenter.ProfitCenter
+                                                                                      and $projection.PostingDate    <= _ProfitCenter.ValidityEndDate
+                                                                                      and $projection.PostingDate    >= _ProfitCenter.ValidityStartDate
+                                                                                      
+  association [0..1] to I_BusinessPartner           as _BusinessPartner               on  $projection.ServicePerformer = _BusinessPartner.BusinessPartner
+  association [0..1] to I_Employment                as _Employment                    on  $projection.EmploymentInternalID = _Employment.EmploymentInternalID
+  association [0..1] to I_AccountAssignmentCategory as _AccountAssignmentCategory     on  $projection.AccountAssignmentCategory = _AccountAssignmentCategory.AccountAssignmentCategory
+  association [0..1] to I_WorkItem                  as _WorkItem                      on  $projection.WorkItem = _WorkItem.WorkItem
+  
+  association [0..1] to I_MasterFixedAsset          as _MasterFixedAsset              on  $projection.CompanyCode      = _MasterFixedAsset.CompanyCode
+                                                                                      and $projection.MasterFixedAsset = _MasterFixedAsset.MasterFixedAsset
+  association [0..1] to I_FixedAsset                as _FixedAsset                    on  $projection.CompanyCode = _FixedAsset.CompanyCode
+                                                                                      and $projection.MasterFixedAsset = _FixedAsset.MasterFixedAsset
+                                                                                      and $projection.FixedAsset       = _FixedAsset.FixedAsset
+
+  association [0..1] to I_CompanyCode               as _CompanyCode                   on  $projection.CompanyCode = _CompanyCode.CompanyCode
+  association [0..1] to I_BusinessArea              as _BusinessArea                  on  $projection.BusinessArea = _BusinessArea.BusinessArea
+  association [0..1] to I_ControllingArea           as _ControllingArea               on  $projection.ControllingArea = _ControllingArea.ControllingArea
+  association [0..1] to I_FunctionalArea            as _FunctionalArea                on  $projection.FunctionalArea = _FunctionalArea.FunctionalArea
+   
+  association [0..1] to I_SalesOrder                as _SalesOrder                    on  $projection.SalesOrder = _SalesOrder.SalesOrder
+  association [0..1] to I_SalesOrder                as _SpecialStockIdfgSalesOrder    on  $projection.SpecialStockIdfgSalesOrder = _SpecialStockIdfgSalesOrder.SalesOrder
+
+  association [0..1] to I_SalesOrderItem            as _SalesOrderItem                on  $projection.SalesOrder     = _SalesOrderItem.SalesOrder
+                                                                                      and $projection.SalesOrderItem = _SalesOrderItem.SalesOrderItem
+  association [0..1] to I_SalesOrderItem            as _SpecialStockIdfgSalesOrderItm on  $projection.SpecialStockIdfgSalesOrder     = _SpecialStockIdfgSalesOrderItm.SalesOrder
+                                                                                      and $projection.SpecialStockIdfgSalesOrderItem = _SpecialStockIdfgSalesOrderItm.SalesOrderItem
+  association [0..1] to I_SalesOrderScheduleLine    as _SalesOrderScheduleLine        on  $projection.SalesOrder     = _SalesOrderScheduleLine.SalesOrder
+                                                                                      and $projection.SalesOrderItem = _SalesOrderScheduleLine.SalesOrderItem
+                                                                                      and $projection.SalesOrderScheduleLine = _SalesOrderScheduleLine.ScheduleLine
+
+  association [0..1] to I_WBSElementByInternalKey   as _SpecialStockIdfgWBSElement    on  $projection.SpecialStockIdfgWBSElement = _SpecialStockIdfgWBSElement.WBSElementInternalID
+  association [0..1] to I_WBSElementByInternalKey   as _WBSElement                    on  $projection.WBSElementInternalID = _WBSElement.WBSElementInternalID
+
+
+  association [0..1] to I_PurchaseOrder             as _PurchaseOrder                 on  $projection.PurchaseOrder = _PurchaseOrder.PurchaseOrder
+  association [0..1] to I_PurchaseOrderItem         as _PurchaseOrderItem             on  $projection.PurchaseOrder     = _PurchaseOrderItem.PurchaseOrder
+                                                                                      and $projection.PurchaseOrderItem = _PurchaseOrderItem.PurchaseOrderItem
+  association [0..1] to I_ProjectNetwork            as _ProjectNetwork                on  $projection.ProjectNetwork = _ProjectNetwork.ProjectNetwork
+  association [0..1] to I_MfgOrder                  as _MfgOrder                      on  $projection.ManufacturingOrder = _MfgOrder.ManufacturingOrder
+  association [0..1] to I_MfgOrderItem              as _MfgOrderItem                  on  $projection.ManufacturingOrder     = _MfgOrderItem.ManufacturingOrder
+                                                                                      and $projection.ManufacturingOrderItem = _MfgOrderItem.ManufacturingOrderItem
+  association [0..1] to I_LogisticsOrder            as _LogisticsOrder                on  $projection.OrderID = _LogisticsOrder.OrderID
+// The field AUFPS is not assigned to the field POSNR of table AFPO, AUFPS is only filled in case of a goods receipt to a Production Order   
+//  association [0..1] to I_OrderItem                 as _OrderItem                     on  $projection.OrderID = _OrderItem.OrderID
+//                                                                                      and $projection.OrderItem = _OrderItem.OrderItem                                                                                    
+  association [0..1] to I_DeliveryDocument          as _DeliveryDocument              on  $projection.DeliveryDocument = _DeliveryDocument.DeliveryDocument
+  association [0..1] to I_DeliveryDocumentItem      as _DeliveryDocumentItem          on  $projection.DeliveryDocument     = _DeliveryDocumentItem.DeliveryDocument
+                                                                                      and $projection.DeliveryDocumentItem = _DeliveryDocumentItem.DeliveryDocumentItem
+  association [0..1] to I_DeliveryDocument          as _DeliveryInMatlDocumentHeader  on  $projection.DeliveryInMatlDocumentHeader = _DeliveryInMatlDocumentHeader.DeliveryDocument
+
+  association [0..1] to I_User                      as _User                          on  $projection.CreatedByUser = _User.UserID
+  association [0..1] to I_AccountingDocumentType    as _AccountingDocumentType        on  $projection.AccountingDocumentType = _AccountingDocumentType.AccountingDocumentType
+  association [0..1] to I_InventoryTransactionType  as _InventoryTransactionType      on  $projection.InventoryTransactionType = _InventoryTransactionType.InventoryTransactionType
+                                                                                      and _InventoryTransactionType.IsMaterialDocumentRelevant = 'X'
+  association [0..1] to I_Currency                  as _Currency                      on  $projection.CompanyCodeCurrency = _Currency.Currency
+{
+//-------------------------------------------------------------------------------------------------
+//------Start of custom enhancement, part 1/1
+//-------------------------------------------------------------------------------------------------
+//----Field StockChangeCategory is needed earlier to be used for time series
+    cast(case when stock_qty > 0 and reversal_movement = '' or
+                stock_qty < 0 and reversal_movement = 'X'
+        then 'GR' 
+        else case 
+           when stock_qty < 0 and reversal_movement = '' or
+                stock_qty > 0 and reversal_movement = 'X'
+           then 'GI'
+           else '' end 
+      end as nsdm_stock_change_category preserving type) as StockChangeCategory,
+
+//----Generic counter for Material Document Items
+    1 as CountMatDocPos,
+//-------------------------------------------------------------------------------------------------
+//------End of custom enhancement, part 1/1
+//-------------------------------------------------------------------------------------------------
+
+  cast(mjahr as nsdm_mjahr preserving type) as MaterialDocumentYear,
+  mblnr             as MaterialDocument,
+  cast(zeile as nsdm_mblpo preserving type) as MaterialDocumentItem,
+
+  matbf             as StockIdentifyingMaterial,
+  werks             as Plant,
+  lgort_sid         as StockIdfgStorageLocation,
+  charg_sid         as StockIdentifyingBatch,
+  lifnr_sid         as SpecialStockIdfgSupplier,
+  mat_kdauf         as SpecialStockIdfgSalesOrder,
+  mat_kdpos         as SpecialStockIdfgSalesOrderItem,
+  mat_pspnr         as SpecialStockIdfgWBSElement,
+  kunnr_sid         as SpecialStockIdfgCustomer,
+  cast(sobkz as nsdm_spcl_stock_type preserving type) as InventorySpecialStockType,
+  lbbsa_sid         as InventoryStockType,
+  cast(disub_owner_sid as nsdm_add_spcl_stock_supplier preserving type)   as SpecialStockIdfgStockOwner,
+
+  -- with records of type MDOC_CP, AG_MDOC_CF etc there is no unique key except the technical GUID key, so we don't use any key fields at all
+
+  matnr             as Material,
+  lgort             as StorageLocation,
+  charg             as Batch,
+  lifnr             as Supplier,
+  kdauf             as SalesOrder,
+  cast(kdpos as nsdm_sales_order_item preserving type) as SalesOrderItem,
+  cast(kdein as nsdm_kdein preserving type)         as SalesOrderScheduleLine,
+  kunnr             as Customer,
+  cast(disub_owner as nsdm_add_spcl_stock_supplier preserving type)      as StockOwner,
+  ps_psp_pnr        as WBSElementInternalID,
+
+  cast(ummat as nsdm_umat preserving type)          as IssgOrRcvgMaterial,
+  umwrk             as IssuingOrReceivingPlant,
+  umlgo             as IssuingOrReceivingStorageLoc,
+  cast(umcha as nsdm_umcha preserving type)         as IssgOrRcvgBatch,
+  umsok             as IssgOrRcvgSpclStockInd,
+  umbar             as IssuingOrReceivingValType,
+  lbbsa_cid         as IssuingOrReceivingStockType,
+
+  cast(kzbew as nsdm_kzbew preserving type)         as GoodsMovementRefDocType,
+  kzvbr             as ConsumptionPosting,
+  grund             as GoodsMovementReasonCode,    
+  bwart             as GoodsMovementType,
+  shkzg             as DebitCreditCode,
+  insmk             as InventoryUsabilityCode,
+  @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+  @DefaultAggregation: #NONE
+  menge             as QuantityInBaseUnit,
+  @Semantics.unitOfMeasure: true
+  meins             as MaterialBaseUnit,
+
+  @DefaultAggregation:#NONE
+  @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+  stock_qty         as MatlStkChangeQtyInBaseUnit,
+
+  @DefaultAggregation:#NONE
+  @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+  consumption_qty   as MatlCnsmpnQtyInMatlBaseUnit,
+
+  @Semantics.businessDate.at: true
+  bldat             as DocumentDate,
+  blart             as AccountingDocumentType,
+  vgart             as InventoryTransactionType,
+  cast ( kzbws as nsdm_separate_valn_type preserving type ) as InventorySpecialStockValnType, 
+  
+  cpudt             as CreationDate,
+  cputm             as CreationTime,
+  usnam             as CreatedByUser,
+  bktxt             as MaterialDocumentHeaderText,
+  sgtxt             as MaterialDocumentItemText,
+  le_vbeln          as DeliveryInMatlDocumentHeader,
+  frbnr             as BillOfLading,
+  
+  vfdat             as ShelfLifeExpirationDate,
+  hsdat             as ManufactureDate,
+  
+  @Semantics.quantity.unitOfMeasure: 'EntryUnit'
+  @DefaultAggregation: #NONE
+  erfmg             as QuantityInEntryUnit,
+  @Semantics.unitOfMeasure: true
+  erfme             as EntryUnit,
+  bwtar             as InventoryValuationType,
+
+  ebeln             as PurchaseOrder,
+  ebelp             as PurchaseOrderItem,
+  nplnr             as ProjectNetwork,
+  aufnr             as ManufacturingOrder,
+  cast(aufps as nsdm_co_posnr preserving type) as ManufacturingOrderItem,
+  aufnr             as OrderID,
+  cast(aufps as nsdm_co_posnr preserving type) as OrderItem,
+  rsnum             as Reservation,
+  cast(rspos as nsdm_rspos preserving type ) as ReservationItem,
+  cast(kzear as nsdm_kzear preserving type ) as ReservationIsFinallyIssued,
+  vbeln_im          as DeliveryDocument,
+  vbelp_im          as DeliveryDocumentItem,
+  elikz             as IsCompletelyDelivered,
+  
+  cast(sjahr as nsdm_sjahr preserving type) as ReversedMaterialDocumentYear,
+  cast(smbln as nsdm_smbln preserving type) as ReversedMaterialDocument,
+  cast(smblp as nsdm_smblp preserving type) as ReversedMaterialDocumentItem,
+  xwsbr             as RvslOfGoodsReceiptIsAllowed,
+  cast(reversal_movement as nsdm_xstbw preserving type) as IsReversalMovementType,
+  cancelled         as GoodsMovementIsCancelled,
+  cancellation_type as GoodsMovementCancellationType, 
+
+  wempf             as GoodsRecipientName,
+  ablad             as UnloadingPointName,
+  kostl             as CostCenter,
+  sakto             as GLAccount,
+  kstrg             as CostObject,
+  cast(paobjnr as nsdm_rkeobjnr preserving type) as ProfitabilitySegment,
+  prctr             as ProfitCenter,
+  kalnr             as CostEstimate,
+  
+  xblnr             as ReferenceDocument,
+  serviceperformer  as ServicePerformer,
+  pernr             as EmploymentInternalID,
+  cast(knttp_gr as nsdm_knttp preserving type) as AccountAssignmentCategory,
+  work_item_id      as WorkItem,
+  fbuda             as ServicesRenderedDate,
+
+  bukrs             as CompanyCode,
+  gsber             as BusinessArea,
+  kokrs             as ControllingArea,
+  fkber             as FunctionalArea,
+  urzei             as OriginalMaterialDocumentItem,
+  maa_urzei         as MultiAcctAssgmtOriglMatlDocItm,
+  weunb             as GoodsReceiptIsNonValuated,
+  xmacc             as HasMultipleAccountAssignment,
+  anln1             as MasterFixedAsset,
+  anln2             as FixedAsset,
+  @Semantics.businessDate.at: true
+  budat             as PostingDate,
+  @Semantics.fiscal.yearPeriod: true
+  cast(gjper as nsdm_jahrper preserving type) as FiscalYearPeriod,
+  @Semantics.fiscal.yearVariant: true
+  periv             as FiscalYearVariant,
+  
+  fistl             as FundsCenter,
+  geber             as Fund,
+  fipos             as CommitmentItem,
+  grant_nbr         as GrantID,
+
+  yearday_budat     as YearDay,
+  @Semantics.calendar.yearWeek: true
+  yearweek_budat    as YearWeek,
+  @Semantics.calendar.yearMonth: true
+  yearmonth_budat   as YearMonth,
+  @Semantics.calendar.yearQuarter: true
+  yearquarter_budat as YearQuarter,
+  @Semantics.calendar.year: true
+  year_budat        as DocumentYear,
+  @Semantics.calendar.quarter: true
+  quarter_budat     as CalendarQuarter,
+  @Semantics.calendar.month: true
+  month_budat       as CalendarMonth,
+  @Semantics.calendar.week: true
+  week_budat        as CalendarWeek,
+  @Semantics.calendar.dayOfYear: true
+  cast(day_budat as nsdm_day_of_year preserving type)     as CalendarDay,
+  cast(weekday_budat as nsdm_day_of_week preserving type) as WeekDay,
+  gjahr             as FiscalYear,
+  gjper_curr_per    as YearPeriod,
+
+  @Semantics.amount.currencyCode: 'CompanyCodeCurrency'
+  @DefaultAggregation: #NONE
+  dmbtr             as TotalGoodsMvtAmtInCCCrcy,
+  @Semantics.amount.currencyCode: 'CompanyCodeCurrency'
+  @DefaultAggregation: #NONE
+  dmbtr_stock       as GoodsMovementStkAmtInCCCrcy,
+  @Semantics.amount.currencyCode: 'CompanyCodeCurrency'
+  @DefaultAggregation: #NONE
+  dmbtr_cons        as GoodsMvtCnsmpnAmtInCCCrcy,
+  @Semantics.currencyCode: true
+  cast(waers as nsdm_comp_code_currency preserving type)  as CompanyCodeCurrency,
+
+  @Semantics.amount.currencyCode: 'CompanyCodeCurrency'
+  @DefaultAggregation: #NONE
+  exbwr             as GdsMvtExtAmtInCoCodeCrcy,
+  @Semantics.amount.currencyCode: 'CompanyCodeCurrency'
+  @DefaultAggregation: #NONE
+  vkwrt             as SlsPrcAmtInclVATInCoCodeCrcy,
+  @Semantics.amount.currencyCode: 'CompanyCodeCurrency'
+  @DefaultAggregation: #NONE
+  exvkw             as EnteredSlsAmtInCoCodeCrcy,
+  
+  @Consumption.hidden: true
+  tcode2            as TransactionCode,
+  
+  @Consumption.hidden: true
+  cast(xauto as nsdm_xauto preserving type) as IsAutomaticallyCreated,
+  @Consumption.hidden: true
+  cast(line_id as nsdm_mb_line_id preserving type) as MaterialDocumentLine,
+  @Consumption.hidden: true
+  parent_id         as MaterialDocumentParentLine,
+  @Consumption.hidden: true
+  line_depth        as HierarchyNodeLevel,
+  
+  @Consumption.hidden: true
+  record_type       as MaterialDocumentRecordType,
+  @Consumption.hidden: true
+  header_counter    as IsMaterialDocumentHeader,
+
+  _Material,
+  _StockIdentifyingMaterial,
+  _IssgOrRcvgMaterial,
+  _Plant,
+  _IssuingOrReceivingPlant,
+  _StorageLocation,
+  _IssuingOrReceivingStorageLoc,
+  _StockIdfgStorageLocation,
+
+  _Supplier,
+  _SpecialStockIdfgSupplier,
+
+  _Customer,
+  _SpecialStockIdfgCustomer,
+  
+  @Consumption.hidden: true
+  _SupplierCompanyByPlant,
+  @Consumption.hidden: true
+  _CustomerCompanyByPlant,
+
+  _BPStockOwner,
+  _SpecialStockIdfgStockOwner,
+
+  _InventorySpecialStockType,
+  _IssgOrRcvgSpclStockInd,
+  _InventoryStockType,
+  _IssuingOrReceivingStockType,
+  _InventoryValuationType,
+
+  _GoodsMovementType,
+  _GoodsMovementReasonCode,
+  _DebitCreditCode,
+  _StockType,
+
+  _MaterialBaseUnit,
+  _EntryUnit,
+
+  _BusinessPartner,
+  _Employment,
+  _AccountAssignmentCategory,
+  _WorkItem,
+  _MasterFixedAsset,
+  _FixedAsset,
+  _CompanyCode,
+  _BusinessArea,
+  _ControllingArea,
+  _GLAccount,
+  _CostCenter,
+  _FunctionalArea,
+  _ProfitCenter,
+  
+  _SalesOrder,
+  _SpecialStockIdfgSalesOrder,
+
+  _SalesOrderItem,
+  _SpecialStockIdfgSalesOrderItm,
+
+  _SalesOrderScheduleLine,
+
+  _WBSElement,
+  _SpecialStockIdfgWBSElement,
+
+  _PurchaseOrder,
+  _PurchaseOrderItem,
+  _ProjectNetwork,
+  _MfgOrder,
+  _MfgOrderItem,
+  _LogisticsOrder, 
+  _DeliveryDocument,
+  _DeliveryDocumentItem,
+  _DeliveryInMatlDocumentHeader,
+
+  _User,
+  _AccountingDocumentType,
+  _InventoryTransactionType,
+  _Currency
+}

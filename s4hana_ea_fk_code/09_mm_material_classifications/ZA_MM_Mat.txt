@@ -1,0 +1,26 @@
+// Freek Keijzer, 24.01.2021, view for demo-purposes
+@EndUserText.label: 'MM: Material attributes'
+@AbapCatalog.sqlViewName: 'ZAMMMAT'
+@ObjectModel.representativeKey: 'Material' 
+
+@VDM.viewType: #BASIC
+@Analytics.dataCategory: #DIMENSION
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZA_MM_Mat as select from I_Material as _Mat
+  association[0..1] to ZP_MM_Klart001Ag as _Classif on $projection.Material = _Classif.matnr
+{
+    @ObjectModel.text.association: '_Text'
+key Material,                //Material (mara.matnr)
+    MaterialType,            //Material Type (mara.mtart)
+    MaterialGroup,           //Material Group (mara.matkl)
+    @EndUserText.label: 'Norm'
+    _Classif.Cl_Norm,        //Characteristic Value (ausp.atwrt) for cabn.atnam = 'NORM'
+    @EndUserText.label: 'NS Norm'
+    _Classif.Cl_NS_Norm,     //Characteristic Value (ausp.atwrt) for cabn.atnam = 'NS_NORM'
+    @EndUserText.label: 'Type'
+    _Classif.Cl_Type,        //Characteristic Value (ausp.atwrt) for cabn.atnam = 'TYPE'
+    _Text
+}

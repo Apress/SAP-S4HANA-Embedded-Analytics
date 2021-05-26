@@ -1,0 +1,305 @@
+/* Freek Keijzer, myBrand, 16.09.2020
+Loosely based on standard SAP cube-view I_MaterialStockTimeSeries.
+Source of transaction data is table MATDOC.
+Standard SAP view only has Stock Level Quantities.
+
+Custom enhancements:
+- Stock Level as Amount
+- Stock Changes as Quantity and Amount
+- Besides period types Day, Weel, Month, ... also Period LFWIM
+  (Last Full Week In Month))
+- Stock Changes in "Rolling Year" till end of time period
+- Counter for Material Document Items
+- Master data associations for Material Group and Material Type
+  (not working properly in standard SAP view)
+- Characteristic to discriminate between Receipt and Issue
+- Bin Location from table MARD MARD
+
+Resulting set of key figures:
+MatlWrhsStkQtyInMatlBaseUnit - Stock Level Quantity at end of period
+MatlStkChangeQtyInBaseUnit   - Stock Change Quantity in period
+GoodsIssueQty                - Issued Quantity in period
+GoodsReceiptQty              - Received Quantity in period
+GoodsIssueQtyRolYear         - Issued Quantity in Rolling Year till end of period
+StockValueInCCCrcy           - Stock Level Value at end of period
+StockChangeValInCCCrcy       - Stock Change Value in period
+GoodsIssueVal                - Issued Value in period
+GoodsReceiptVal              - Received Value in period
+GoodsIssueValRolYear         - Issued Value in Rolling Year till end of period
+CountMatDocPos               - No Material Document Items contributing to Stock Change in period
+NDays                        - No Days within period
+NDaysRolYear                 - No Days within Rolling Year till end of period (365 or 366)
+
+Only the first key figure was available in the standard SAP view.
+The others are results of the custom enhancements.
+
+Layered structure of SAP-delivered CDS-views from query down to table ...
+  C_MaterialStockTimeSeries                        - Query-view
+  |- I_MaterialStockTimeSeries                     - Cube-view
+     |- P_MaterialStockTimeSeries                  - Aggregation
+        |- P_MaterialStockTimeSeries1 (union)      - Link stock to time series
+           |- I_MaterialStockPeriodsSingle (2x)    - Period type as parameter
+           |  |- P_MaterialStockPeriods (union)    - Periods (F,Y,Q,M,W,D) based on parameters start/end date 
+           |     |- I_FiscalCalendarDate (1x:F)
+           |     |- P_MaterialStockFYVariant
+           |     |- I_SAPClient (dummy,5x)
+           |     |- I_CalendarDate (5x:Y,Q,M,W,D)
+           |- I_MaterialStock_Aggr                 - Stock increase since start of 1st period
+           |  |- I_MaterialDocumentRecord          - Basic view with mapping of field names
+           |     |- matdoc                         - Source table Material Documents
+           |- P_MaterialStockByKeyDate1            - Stock level at start of 1st period
+              |- I_MaterialStock_Aggr
+                 |- ...
+
+... has been modified to following structure
+  ZQ_MM_INV_STOCK_TS                               - Query-view
+  |- ZC_MM_INV_STOCK_TS                            - Cube-view
+     |- ZP_MM_INV_STOCK_TS                         - Aggregation, enrichment
+        |- ZP_P_MaterialStockTimeSeries1 (union)   - Link stock to time series
+           |- ZP_I_MaterialStockPeriodsSingle (4x) - Period type as parameter
+           |  |- ZP_P_MaterialStockPeriods (union) - Periods (F,Y,Q,M,W,D,P) based on parameters start/end date
+           |     |- I_FiscalCalendarDate (1x:F)
+           |     |- P_MaterialStockFYVariant
+           |     |- I_SAPClient (dummy,6x)
+           |     |- I_CalendarDate (5x:Y,Q,M,W,D)
+           |     |- ZP_CA_DATE_PLFWIM (P)
+           |- ZP_I_MaterialStock_Aggr (3x)         - Stock increase since start of 1st period
+           |  |- ZB_I_MaterialDocumentRecord       - Basic view with mapping of field names
+           |     |- matdoc                         - Source table Material Documents
+           |- ZP_P_MaterialStockByKeyDate1         - Stock level at start of 1st period
+              |- ZP_I_MaterialStock_Aggr
+                 |- ...
+
+Most custom enhancements are in view ZP_P_MaterialStockTimeSeries1 (union).
+--------------------------------------------------------
+Change-log: 
+--------------------------------------------------------
+--------------------------------------------------------*/
+@AbapCatalog: {
+                 sqlViewName: 'ZCMMINVSTOCKTS',
+                 compiler.compareFilter: true
+              }
+@AccessControl: {
+                  authorizationCheck: #CHECK,
+                  personalData.blocking: #NOT_REQUIRED   --there are no BP references in table MATDOC with an EndOfPurpose state
+                }
+@EndUserText.label: 'MM: Stock Time Series'
+@ObjectModel: {
+                 usageType:{
+                              sizeCategory: #XXL,
+                              serviceQuality: #D,
+                              dataClass:#TRANSACTIONAL
+                           }
+              }
+@ClientHandling.algorithm: #SESSION_VARIABLE
+@VDM: {
+         viewType: #COMPOSITE,
+         private: false
+      }
+@Analytics.dataCategory:#CUBE
+@Metadata.ignorePropagatedAnnotations: true
+ 
+/*+[hideWarning] { "IDS" : [ "KEY_CHECK" ] } */
+ 
+
+define view ZC_MM_INV_STOCK_TS
+  with parameters
+    P_StartDate  : vdm_v_start_date,
+    P_EndDate    : vdm_v_end_date,
+    P_PeriodType : nsdm_period_type
+  as select from ZP_MM_INV_STOCK_TS(P_StartDate:  :P_StartDate,
+                                           P_EndDate:    :P_EndDate,
+                                           P_PeriodType: :P_PeriodType)
+
+//--Associations from standard SAP view
+  association [1..1] to I_Material                  as _Material                  on  $projection.Material = _Material.Material
+  association [1..1] to I_CompanyCode               as _CompanyCode               on  $projection.CompanyCode = _CompanyCode.CompanyCode
+  association [1..1] to I_Plant                     as _Plant                     on  $projection.Plant = _Plant.Plant
+  association [0..1] to I_StorageLocation           as _StorageLocation           on  $projection.Plant           = _StorageLocation.Plant
+                                                                                  and $projection.StorageLocation = _StorageLocation.StorageLocation
+  association [0..1] to I_Supplier                  as _Supplier                  on  $projection.Supplier = _Supplier.Supplier
+  association [0..1] to I_Customer                  as _Customer                  on  $projection.Customer = _Customer.Customer
+  association [1..1] to I_InventoryStockType        as _InventoryStockType        on  $projection.InventoryStockType = _InventoryStockType.InventoryStockType
+  association [1..1] to I_InventorySpecialStockType as _InventorySpecialStockType on  $projection.InventorySpecialStockType = _InventorySpecialStockType.InventorySpecialStockType
+  association [1..1] to I_UnitOfMeasure             as _UnitOfMeasure             on  $projection.MaterialBaseUnit = _UnitOfMeasure.UnitOfMeasure
+  association [0..1] to I_FiscalYearVariant         as _FiscalYearVariant         on  $projection.FiscalYearVariant = _FiscalYearVariant.FiscalYearVariant
+  association [0..1] to I_InvtryPrcBasicByKeyDate   as _InvtryPrcByPeriodEndDate  on  $projection.CostEstimate = _InvtryPrcByPeriodEndDate.CostEstimate
+  association [0..1] to I_CurrentMatlPriceByCostEst as _CurrentInvtryPrice        on  $projection.CostEstimate = _CurrentInvtryPrice.CostEstimate
+
+//--Additional associations
+  association [0..1] to I_MaterialType  as _MaterialType    on $projection.materialtype    = _MaterialType.MaterialType
+  association [0..1] to I_MaterialGroup as _MaterialGroup   on $projection.materialgroup   = _MaterialGroup.MaterialGroup
+  association [0..1] to mard                                on $projection.Material        = mard.matnr and
+                                                               $projection.Plant           = mard.werks and
+                                                               $projection.StorageLocation = mard.lgort
+{
+
+key PeriodType,
+
+    @Semantics.businessDate.at: true
+    @Semantics.businessDate.to: false  -- switch of semantic inherited from one of the lower view in the stack
+key EndDate,
+
+key YearPeriod,
+
+    @ObjectModel.foreignKey.association: '_Material'
+key Material,
+
+    @ObjectModel.foreignKey.association: '_Plant'
+key Plant,
+
+    @ObjectModel.foreignKey.association: '_StorageLocation'
+key StorageLocation,
+
+key Batch,
+
+    @ObjectModel.foreignKey.association: '_Supplier'
+key Supplier,
+
+key SDDocument,
+
+key SDDocumentItem,
+
+key WBSElementInternalID,
+
+    @ObjectModel.foreignKey.association: '_Customer'
+key Customer,
+
+    @ObjectModel.foreignKey.association: '_InventoryStockType'
+key InventoryStockType,
+
+    @ObjectModel.foreignKey.association: '_InventorySpecialStockType'
+key InventorySpecialStockType,
+
+    @Semantics.fiscal.yearVariant: true
+key FiscalYearVariant,
+
+    @Semantics.unitOfMeasure
+key MaterialBaseUnit,
+
+key StockChangeCategory,                         //Stock Change Category = 'GR','GI'
+
+//KEY FIGURES, UNITS, CURRENCIES
+//--Quantities
+    @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+    @DefaultAggregation : #SUM
+    @EndUserText.label: 'Stock Level Qty'
+    MatlWrhsStkQtyInMatlBaseUnit,
+
+    @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+    @DefaultAggregation : #SUM
+    @EndUserText.label: 'Stock Change Qty'
+    MatlStkChangeQtyInBaseUnit,
+
+    @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+    @DefaultAggregation : #SUM
+    @EndUserText.label: 'Issued Qty'
+    cast( case when StockChangeCategory = 'GI' then MatlStkChangeQtyInBaseUnit * -1 end
+      as nsdm_gi_qty) as GoodsIssueQty,
+
+    @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+    @DefaultAggregation : #SUM
+     @EndUserText.label: 'Received Qty'
+    cast( case when StockChangeCategory = 'GR' then MatlStkChangeQtyInBaseUnit end
+      as nsdm_gr_qty) as GoodsReceiptQty,
+
+   @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+    @DefaultAggregation : #SUM
+    @EndUserText.label: 'Received Qty in RY'
+    cast( case when StockChangeCategory = 'GI' then MatlStkChangeQtyRolYearInBU * -1 end
+      as nsdm_gi_qty) as GoodsIssueQtyRolYear,
+
+//--Amounts using current price, logic copied from P_MatStkQtyValCur2
+    @Semantics.amount.currencyCode: 'CompanyCodeCurrency'
+    @DefaultAggregation : #SUM
+    @EndUserText.label: 'Stock Level Value'
+    cast( round( cast(MatlWrhsStkQtyInMatlBaseUnit as abap.dec( 18, 3 )) * division( cast(_CurrentInvtryPrice.InventoryPrice as abap.dec( 11, 2 )),
+        cast(_CurrentInvtryPrice.MaterialPriceUnitQty as abap.dec( 5, 0 )), 5 ), 3 ) as nsdm_stock_value_in_cccrcy )
+    as StockValueInCCCrcy,
+
+    @Semantics.amount.currencyCode: 'CompanyCodeCurrency'
+    @DefaultAggregation : #SUM
+    @EndUserText.label: 'Stock Change Value'
+    cast( round( cast(MatlStkChangeQtyInBaseUnit as abap.dec( 18, 3 )) * division( cast(_CurrentInvtryPrice.InventoryPrice as abap.dec( 11, 2 )),
+        cast(_CurrentInvtryPrice.MaterialPriceUnitQty as abap.dec( 5, 0 )), 5 ), 3 ) as nsdm_stock_value_in_cccrcy )
+    as StockChangeValInCCCrcy,
+
+    @Semantics.amount.currencyCode: 'CompanyCodeCurrency'
+    @DefaultAggregation : #SUM
+    @EndUserText.label: 'Issued Value'
+    case when StockChangeCategory = 'GI' then
+      cast( round( cast(MatlStkChangeQtyInBaseUnit as abap.dec( 18, 3 )) * division( cast(_CurrentInvtryPrice.InventoryPrice as abap.dec( 11, 2 )),
+        cast(_CurrentInvtryPrice.MaterialPriceUnitQty as abap.dec( 5, 0 )), 5 ), 3 ) as nsdm_stock_value_in_cccrcy ) * -1
+    end as GoodsIssueVal,
+
+    @Semantics.amount.currencyCode: 'CompanyCodeCurrency'
+    @DefaultAggregation : #SUM
+    @EndUserText.label: 'Received Value'
+    case when StockChangeCategory = 'GR' then
+      cast( round( cast(MatlStkChangeQtyInBaseUnit as abap.dec( 18, 3 )) * division( cast(_CurrentInvtryPrice.InventoryPrice as abap.dec( 11, 2 )),
+        cast(_CurrentInvtryPrice.MaterialPriceUnitQty as abap.dec( 5, 0 )), 5 ), 3 ) as nsdm_stock_value_in_cccrcy )
+    end as GoodsReceiptVal,
+
+    @Semantics.amount.currencyCode: 'CompanyCodeCurrency'
+    @DefaultAggregation : #SUM
+    @EndUserText.label: 'Issued Value RY'
+    case when StockChangeCategory = 'GI' then
+      cast( round( cast(MatlStkChangeQtyRolYearInBU as abap.dec( 18, 3 )) * division( cast(_CurrentInvtryPrice.InventoryPrice as abap.dec( 11, 2 )),
+        cast(_CurrentInvtryPrice.MaterialPriceUnitQty as abap.dec( 5, 0 )), 5 ), 3 ) as nsdm_stock_value_in_cccrcy ) * -1
+    end as GoodsIssueValRolYear,
+
+    CompanyCodeCurrency,
+      
+    @DefaultAggregation : #SUM
+    @EndUserText.label: 'No Mat.Doc.Items'
+    CountMatDocPos,
+      
+    @DefaultAggregation : #MAX
+    @EndUserText.label: 'Days'
+    NDays,
+
+    @DefaultAggregation : #MAX
+    @EndUserText.label: 'Days in "Rolling Year"'
+    NDaysRolYear,
+
+//CHARACTERISTICS
+//--Additional characteristics compared to SAP standaard
+//----Material attributes as dimension
+    @ObjectModel.foreignKey.association: '_MaterialGroup'
+    _Material.MaterialGroup,
+    
+    @ObjectModel.foreignKey.association: '_MaterialType'
+    _Material.MaterialType,
+
+//----Additional field from table MARD
+    mard.lgpbe as StorageBin,                    //Bin Location (mard.lgpbe)
+
+    @EndUserText.label: 'Start of time period'
+    StartDate,
+    @EndUserText.label: 'Start of "Rolling Year" period'
+    StartDateRolYear,                            // Start Date of "Rolling Year" till end of time period, e.g. 25.09.2020 -> 26.09.2019
+
+//--From SAP standard view
+    CostEstimate,
+    @ObjectModel.foreignKey.association: '_CompanyCode'
+    CompanyCode,
+
+//--Additional associations
+    _MaterialType,
+    _MaterialGroup,
+
+      // Associations for names and descriptions
+    _UnitOfMeasure,
+    _Material,
+    _CompanyCode,
+    _Plant,
+    _StorageLocation,
+    _Supplier,
+    _Customer,
+    _InventoryStockType,
+    _InventorySpecialStockType,
+    _FiscalYearVariant,
+    _InvtryPrcByPeriodEndDate,
+    _CurrentInvtryPrice
+}
+where PeriodType = :P_PeriodType

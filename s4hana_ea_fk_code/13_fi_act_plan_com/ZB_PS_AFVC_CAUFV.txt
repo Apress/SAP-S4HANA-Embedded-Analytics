@@ -1,0 +1,29 @@
+/* Freek Keijzer, myBrand, 19.08.2019
+View for description and WBS-element of Network Activity.
+Source tables/views:
+AFVC  - "Operation within an order"
+CAUFV - "View "Order Headers PP/CO""
+PRPS  - "WBS (Work Breakdown Structure) Element Master Data"
+--------------------------------------------------------
+Change-log: 
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'ZB_PS_AFVC_CAUFV'
+@AbapCatalog.sqlViewName: 'ZBPSAFVCCAUFV'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZB_PS_AFVC_CAUFV as select from afvc
+  inner join caufv
+    on afvc.aufpl = caufv.aufpl
+  left outer join prps
+    on prps.pspnr = afvc.projn
+{
+key caufv.aufnr,                                 //Order Number (caufv.aufnr)
+key afvc.vornr,                                  //Operation/Activity Number (afvc.vornr)
+    max(afvc.ltxa1) as ltxa1,                    //Operation short text (afvc.ltxa1)
+    max(prps.posid) as posid                     //WBS-element CHAR-24 (prps.posid)
+}
+group by caufv.aufnr, afvc.vornr

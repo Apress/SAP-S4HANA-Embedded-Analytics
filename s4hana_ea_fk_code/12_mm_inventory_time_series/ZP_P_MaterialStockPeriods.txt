@@ -1,0 +1,161 @@
+/* Freek Keijzer, myBrand, 17.09.2020
+Standard SAP view P_MaterialStockPeriods enhanced with
+"PeriodType" = 'P', period based on last full week in month.
+--------------------------------------------------------
+Change-log: 
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'MM: P_MaterialStockPeriods (enhanced)'
+@AbapCatalog.sqlViewName: 'ZPMATSTOCKPERIDS'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZP_P_MaterialStockPeriods
+  with parameters
+    P_StartDate : vdm_v_start_date,
+    P_EndDate   : vdm_v_end_date
+  as
+  // Fiscal Year Period
+  select from  I_FiscalCalendarDate     as fc
+    inner join P_MaterialStockFYVariant as fv on fc.FiscalYearVariant = fv.FiscalYearVariant
+{
+  key 'F'                      as PeriodType,
+  key fc.FiscalYearVariant     as FiscalYearVariant,
+  key fc.FiscalYearPeriod      as YearPeriod,
+      fc.FiscalPeriodStartDate as StartDate,
+      fc.FiscalPeriodEndDate   as EndDate
+}
+where
+      fc.FiscalPeriodEndDate   >= :P_StartDate
+  and fc.FiscalPeriodStartDate <= :P_EndDate
+group by
+  fc.FiscalYearVariant,
+  fc.FiscalYearPeriod,
+  fc.FiscalPeriodStartDate,
+  fc.FiscalPeriodEndDate
+
+union all
+
+// Calendar Year
+select from  I_SAPClient    as sc
+  inner join I_CalendarDate as cd on sc.LogicalSystem =  ''
+                                  or sc.LogicalSystem <> '' //dummy "on" condition
+{
+  key 'Y'                            as PeriodType,
+  key ' '                            as FiscalYearVariant,
+  key concat(cd.CalendarYear, '000') as YearPeriod,
+      min(cd.CalendarDate)           as StartDate,
+      max(cd.CalendarDate)           as EndDate
+}
+where
+      cd.CalendarDate >= :P_StartDate
+  and cd.CalendarDate <= :P_EndDate
+group by
+  cd.CalendarYear
+
+union all
+
+// Calendar Quarter
+select from  I_SAPClient    as sc
+  inner join I_CalendarDate as cd on sc.LogicalSystem =  ''
+                                  or sc.LogicalSystem <> '' //dummy "on" condition
+{
+  key 'Q'                                                       as PeriodType,
+  key ' '                                                       as FiscalYearVariant,
+  key concat(cd.CalendarYear, concat('00', cd.CalendarQuarter)) as YearPeriod,
+      min(cd.CalendarDate)                                      as StartDate,
+      max(cd.CalendarDate)                                      as EndDate
+}
+where
+      cd.CalendarDate >= :P_StartDate
+  and cd.CalendarDate <= :P_EndDate
+group by
+  cd.CalendarYear,
+  cd.CalendarQuarter
+
+union all
+
+// Calendar Month
+select from  I_SAPClient    as sc
+  inner join I_CalendarDate as cd on sc.LogicalSystem =  '' //dummy "on" condition
+                                  or sc.LogicalSystem <> ''
+{
+  key 'M'                                                    as PeriodType,
+  key ' '                                                    as FiscalYearVariant,
+  key concat(cd.CalendarYear, concat('0', cd.CalendarMonth)) as YearPeriod,
+      min(cd.CalendarDate)                                   as StartDate,
+      max(cd.CalendarDate)                                   as EndDate
+}
+where
+      cd.CalendarDate >= :P_StartDate
+  and cd.CalendarDate <= :P_EndDate
+group by
+  cd.CalendarYear,
+  cd.CalendarMonth
+
+union all
+
+// Calendar Week
+select from  I_SAPClient    as sc
+  inner join I_CalendarDate as cd on sc.LogicalSystem =  '' //dummy "on" condition
+                                  or sc.LogicalSystem <> ''
+{
+  key 'W'                                                             as PeriodType,
+  key ' '                                                             as FiscalYearVariant,
+  key concat(substring(cd.YearWeek,1,4),concat('0', cd.CalendarWeek)) as YearPeriod,
+      min(cd.CalendarDate)                                            as StartDate,
+      max(cd.CalendarDate)                                            as EndDate
+}
+where
+      cd.CalendarDate >= :P_StartDate
+  and cd.CalendarDate <= :P_EndDate
+group by
+  cd.CalendarWeek,
+  cd.YearWeek
+
+union all
+
+// Calendar Day
+select from  I_SAPClient    as sc
+  inner join I_CalendarDate as cd on sc.LogicalSystem =  '' //dummy "on" condition
+                                  or sc.LogicalSystem <> ''
+{
+  key 'D'                                           as PeriodType,
+  key ' '                                           as FiscalYearVariant,
+  key concat(cd.CalendarYear, cd.CalendarDayOfYear) as YearPeriod,
+      min(cd.CalendarDate)                          as StartDate,
+      max(cd.CalendarDate)                          as EndDate
+}
+where
+      cd.CalendarDate >= :P_StartDate
+  and cd.CalendarDate <= :P_EndDate
+group by
+  cd.CalendarYear,
+  cd.CalendarDayOfYear     
+ 
+//-------------------------------------------------------------------------------------------------
+//------Start of custom enhancement, part 1/1
+//-------------------------------------------------------------------------------------------------
+union all
+
+// Period based on last full week in month
+select from  I_SAPClient    as sc
+  inner join ZP_CA_DATE_PLFWIM as cd on sc.LogicalSystem =  '' //dummy "on" condition
+                                     or sc.LogicalSystem <> ''
+{
+  key 'P'                                           as PeriodType,
+  key ' '                                           as FiscalYearVariant,
+  key concat(left(cd.YearWeekPLFWIM,4), concat('0',right(cd.YearWeekPLFWIM,2))) as YearPeriod,
+      min(cd.CalendarDate)                          as StartDate,
+      max(cd.CalendarDate)                          as EndDate
+}
+where
+      cd.CalendarDate >= :P_StartDate
+  and cd.CalendarDate <= :P_EndDate
+group by
+  cd.YearWeekPLFWIM
+//-------------------------------------------------------------------------------------------------
+//------End of custom enhancement, part 1/1
+//-------------------------------------------------------------------------------------------------

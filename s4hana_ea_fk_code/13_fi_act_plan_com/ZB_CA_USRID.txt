@@ -1,0 +1,26 @@
+/* Freek Keijzer, myBrand, 28.01.2021
+View to obtain maximum result from data giving relation
+between SAP user-id and name of a person. Source tables:
+USR21 - "User Name/Address Key Assignment"
+ADRP  - "Persons (Business Address Services)"
+Relation between SAP-id (usr21.bname) and name (adrp.name_text).
+Standard views like V_USERNAME and USER_ADDRP do something
+comparable on same tables, but these views include filters.
+--------------------------------------------------------
+Change-log: 
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'CA: Data for relation SAP-ID and name'
+@AbapCatalog.sqlViewName: 'ZBCAUSRID'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZB_CA_USRID as select from usr21
+  inner join adrp on adrp.persnumber = usr21.persnumber
+{
+key usr21.bname,
+    max(adrp.name_text) as name_text
+}
+group by usr21.bname

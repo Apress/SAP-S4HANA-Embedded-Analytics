@@ -1,0 +1,26 @@
+/* Freek Keijzer, myBrand, 02.06.2020
+Aggregation of dataset to 1 line per Order.
+--------------------------------------------------------
+Change log:
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'LOG: Data for User Status Order, aggr.'
+@AbapCatalog.sqlViewName: 'ZPLOGAUFKJESTAG'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZP_LOG_AUFK_JEST_Ag as select from ZP_LOG_AUFK_JEST
+{
+key aufnr,                                       //Order Number (aufk.aufnr) 
+    max(sta01)  as sta01, 
+    max(sta02)  as sta02, 
+    max(sta03)  as sta03, 
+    max(sta04)  as sta04, 
+    max(sta05)  as sta05, 
+    max(sta06)  as sta06, 
+    max(sta07)  as sta07, 
+    max(sta08)  as sta08
+}
+group by aufnr

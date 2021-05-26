@@ -1,0 +1,20 @@
+/* Freek Keijzer, myBrand, 25.08.2020
+Classification Characteristics of Material.
+Aggregation to 1 line per Material.
+--------------------------------------------------------
+Change-log:
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'MM: Material Classif.Charact.Aggr.'
+@AbapCatalog.sqlViewName: 'ZPMMKLART001AG'
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+define view ZP_MM_Klart001Ag as select from ZP_MM_Klart001
+{
+key matnr,                             //Material (mara.matnr)/ Key of Object to be Classified (inob.objek)
+    max(Cl_Norm)    as Cl_Norm,        //Characteristic Value (ausp.atwrt) for cabn.atnam = 'NORM'
+    max(Cl_NS_Norm) as Cl_NS_Norm,     //Characteristic Value (ausp.atwrt) for cabn.atnam = 'NS_NORM'
+    max(Cl_Type)    as Cl_Type         //Characteristic Value (ausp.atwrt) for cabn.atnam = 'TYPE'
+}
+group by matnr

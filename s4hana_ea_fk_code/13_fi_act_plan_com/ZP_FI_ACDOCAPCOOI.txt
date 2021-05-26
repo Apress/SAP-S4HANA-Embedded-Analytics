@@ -1,0 +1,151 @@
+/* Freek Keijzer, myBrand, 19.03.2020
+Enrichment view for financial analysis Actuals + Plan + Commitments.
+Transformations, enrichments:
+- Posting Period as CHAR-3, otherwise period '000' is displayed as '#'
+- Time characteristics based on Posting Date
+- Only use numeric WBS-element acdoca/acdocp/ekkn.ps_psp_pnr from
+  transaction data tables, and obtain other versions and properties
+  of WBS-element via master data view.
+  Reason: fields acdoca/acdocp.ps_posid can have erroneous value.
+- Network Activity: description and WBS-element
+- Flattened hierarchy for G/L Account
+--------------------------------------------------------
+Change-log: 
+--------------------------------------------------------
+JIRA-23456, 06-07-2020, Danny Linders
+Replace ZA_FI_RACCT_HIER by parametrized version ZA_FI_RACCT_HIER_PAR
+--------------------------------------------------------*/
+@EndUserText.label: 'FI: Data Act.+Plan+Commitm., enrichment'
+@AbapCatalog.sqlViewName: 'ZPFIACDOCAPCOOI'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZP_FI_ACDOCAPCOOI as select from ZP_FI_ACDOCAPCOOI_UN as _Fin
+  association[0..1] to I_CalendarDate         as _Calendar    on $projection.budat = _Calendar.CalendarDate
+  association[0..1] to I_WBSElementBasicData  as _Wbs         on $projection.WBSElementInternalID = _Wbs.WBSElementInternalID
+  association[0..1] to ZB_PS_AFVC_CAUFV       as _Nwa         on $projection.nplnr       = _Nwa.aufnr and
+                                                                 $projection.nplnr_vorgn = _Nwa.vornr
+  association[0..1] to ZA_FI_RACCT_HIER_PAR   as _GlHier      on $projection.ktopl = _GlHier.ktopl and
+                                                                 $projection.racct = _GlHier.saknr
+
+{
+    _Fin.Source,                                 //Source = 'ACDOCA', 'ACDOCP' or 'COOI'
+
+//--Fields from table Actuals ACDOCA
+    _Fin.rldnr,                                  //Ledger in General Ledger Accounting (acdoca/acdocp.rldnr)
+    _Fin.rbukrs,                                 //Company Code (acdoca/acdocp.rbukrs, cooi.bukrs)
+    _Fin.gjahr,                                  //Fiscal Year (acdoca/acdocp/cooi.gjahr)
+    _Fin.belnr,                                  //Accounting Document (acdoca.belnr)
+    _Fin.docln,                                  //Accounting Document Item (acdoca.docln)
+    _Fin.rmvct,                                  //Transaction type (acdoca/acdocp.rmvct)
+    _Fin.awtyp,                                  //Reference procedure (acdoca/acdocp.awtyp, cooi.rftyp)
+    _Fin.racct,                                  //G/L Account (acdoca/acdocp.racct/cooi.sakto)
+    _Fin.rcntr,                                  //Cost Center (acdoca/acdocp.rcntr, ekkn.kostl)
+    _Fin.prctr,                                  //Profit Center (acdoca/acdocp/ekkn.prctr)
+    _Fin.rbusa,                                  //Business Area (acdoca/acdocp.rbusa)
+    _Fin.kokrs,                                  //Controlling Area (acdoca/acdocp/cooi.kokrs)
+    _Fin.rassc,                                  //Company ID of trading partner (acdoca/acdocp.rassc, cooi.vbund)
+    _Fin.ksl,                                    //Amount in Global Currency (acdoca/acdocp.ksl)
+    _Fin.rkcur,                                  //Global Currency (acdoca/acdocp.rkcur)
+    _Fin.quant_ap,                               //Quantity (acdoca.msl/acdocp.vmsl -> quant_ap)
+    _Fin.quant_ap_unit,                          //UoM for Quantity (acdoca.runit/acdocp.rvunit -> quant_ap_unit)
+    _Fin.drcrk,                                  //Debit/Credit Indicator (acdoca.drcrk, acdocp.co_belkz/cooi.beknz -> drcrk)
+    _Fin.poper,                                  //Posting period (acdoca/acdocp.poper, cooi.perio)
+    cast(_Fin.poper as abap.char(3)) as FiscPer, //Posting period (acdoca/acdocp.poper, cooi.perio) as CHAR-3
+    _Fin.periv,                                  //Fiscal Year Variant (acdoca/acdocp.periv)
+    _Fin.fiscyearper,                            //Period/year (acdoca/acdocp.fiscyearper, cooi.gjahr+perio)
+    _Fin.budat,                                  //Posting Date (acdoca/acdocp.budat), Expected Debit Date (cooi.budat)
+    _Fin.bldat,                                  //Document Date (acdoca/cooi.bldat)
+    _Fin.blart,                                  //Document type (acdoca.blart)
+    _Fin.zuonr,                                  //Assignment number (acdoca.zuonr)
+    _Fin.bschl,                                  //Posting Key (acdoca.bschl)
+    _Fin.usnam,                                  //User Name (acdoca/acdocp.usnam)
+    _Fin.timestamp,                              //UTC-timestamp (acdoca/cooi.timestamp)
+    _Fin.ktopl,                                  //Chart of Accounts (acdoca/acdocp.ktopl)
+    _Fin.ebeln,                                  //Purchasing Document (acdoca.ebeln, cooi.refbn = ebeln)
+    _Fin.ebelp,                                  //Purchasing Document Item (acdoca.ebelp, cooi.rfpos = ebelp)
+    _Fin.sgtxt,                                  //Item Text (acdoca/acdocp/cooi.sgtxt)
+    _Fin.matnr,                                  //Material (acdoca/acdocp/cooi.matnr)
+    _Fin.werks,                                  //Plant (acdoca/acdocp.werks)
+    _Fin.lifnr,                                  //Vendor (acdoca/cooi.lifnr)
+    _Fin.kunnr,                                  //Customer (acdoca/acdocp.kunnr)
+    _Fin.koart,                                  //Account Type (acdoca.koart)
+    _Fin.mwskz,                                  //Tax on sales/purchases code (acdoca.mwskz)
+    _Fin.hbkid,                                  //Short key for a house bank (acdoca.hbkid)
+    _Fin.hktid,                                  //ID for account details (acdoca.hktid)
+    _Fin.xopvw,                                  //Indicator: Open Item Management? (acdoca.xopvw)
+    _Fin.augdt,                                  //Clearing Date (acdoca.augdt)
+    _Fin.augbl,                                  //Document Number of the Clearing Document (acdoca.augbl)
+    _Fin.auggj,                                  //Fiscal Year of Clearing Document (acdoca.auggj)
+    _Fin.anln1,                                  //Main Asset Number (acdoca.anln1)
+    _Fin.anln2,                                  //Asset Subnumber (acdoca.anln2)
+    _Fin.anlgr,                                  //Group Asset (acdoca.anlgr)
+    _Fin.anlgr2,                                 //Subnumber of Group Asset (acdoca.anlgr2)
+    _Fin.anlkl,                                  //Asset Class (acdoca.anlkl)
+    _Fin.bwtar,                                  //Valuation Type (acdoca.bwtar)
+    _Fin.bwkey,                                  //Valuation area (acdoca.bwkey)
+    _Fin.objnr,                                  //Object number (acdoca/acdocp/cooi.objnr)
+    _Fin.accas,                                  //Account Assignment (acdoca.accas)
+    _Fin.accasty,                                //Object Type (acdoca/acdocp.accasty)
+    _Fin.lstar,                                  //Activity Type (acdoca/acdocp.lstar)
+    _Fin.aufnr,                                  //Order Number (acdoca/acdocp/ekkn.aufnr)
+    _Fin.autyp,                                  //Order category (acdoca.autyp)
+    _Fin.pspnr as WBSElementInternalID,          //WBS-element, NUMC-8 (acdoca/acdocp/ekkn.ps_psp_pnr)
+    _Fin.nplnr,                                  //Network Number (acdoca.nplnr)
+    _Fin.nplnr_vorgn,                            //Network activity (acdoca.nplnr_vorgn)
+    _Fin.paccas,                                 //Partner Account Assignment (acdoca.paccas)
+    _Fin.paccasty,                               //Partner Object Type (acdoca/acdocp.paccasty)
+    _Fin.matkl,                                  //Product Sold Group (acdoca/acdocp/cooi.matkl)
+
+//--Fields only in table Plan ACDOCP
+    _Fin.reqtsn,                                 //Request Transaction Sequence Number (acdocp.reqtsn)
+    _Fin.datapakid,                              //Data packet number (acdocp.datapakid)
+    _Fin.record,                                 //Data record number (acdocp.record)
+    _Fin.category,                               //Category (acdocp.category)
+
+//--Fields from view Commitments ZB_PUR_COOI
+    _Fin.gesmng,                                 //Planned Quantity (cooi.gesmng, unit: cooi.meinh)
+    _Fin.meinh_cooi,                             //Unit of Measure (cooi.meinh)
+    _Fin.megbtr,                                 //Total Quantity (cooi.megbtr, unit: cooi.meinh)
+    _Fin.orgwtk,                                 //Planned Value (cooi.orgwtk, currency: tka01.waers)
+    _Fin.wkgbtr,                                 //Total Value (cooi.wkgbtr, currency: tka01.waers)
+    _Fin.loekz_cooi,                             //Deletion indicator in purchasing document (cooi.loekz)
+    _Fin.tka01_cur,                              //Currency Key (tka01.waers)
+
+//--Creation Date determined via different methods
+    _Fin.zcpudt,                                 //Creation Date (acdoca.timestamp/acdocp.reqtsn/cooi.bldat)
+
+//--Generic counter
+    _Fin.Counter,                                //Generic counter for records in table/view
+
+//--Time characteristics from view I_Calendardate based on Posting Date (acdoca/acdocp.budat) and Expected Debit Date (cooi.budat)    
+    _Calendar.YearWeek,                          //Year Week (scal_tt_date.yearweek)
+    _Calendar.YearMonth,                         //Year Month (scal_tt_date.yearmonth)
+    _Calendar.YearQuarter,                       //Year Quarter (scal_tt_date.yearquarter)
+    _Calendar.CalendarYear,                      //Calendar Year (scal_tt_date.calendaryear)
+    _Calendar.CalendarMonth,                     //Calendar Month (scal_tt_date.calendarmonth)
+
+//--Fields from view I_WBSElementBasicData
+    _Wbs.WBSElement,                             //WBS-element, CHAR-24 (prps.posid)
+    _Wbs.ProjectInternalID,                      //Project, NUMC-8 (prps.psphi = proj.pspnr)
+    _Wbs._Project.Project,                       //Project, CHAR-24 (proj.pspid)
+    _Wbs.WBSElementExternalID,                   //WBS-element with dots (prps.posid_edit)
+    _Wbs.WBSDescription,                         //WBS-element description (prps.post1)
+    _Wbs.CompanyCode as WBSElement_CompanyCode,  //Company Code of WBS-element (prps.pbukr)
+    _Wbs.ProjectType,                            //Project Type (prps.prart)
+
+//--Fields from view ZB_PS_AFVC_CAUFV
+    _Nwa.ltxa1 as NplnrVorgnText,                //Network Activity description (afvc.ltxa1)
+    _Nwa.posid as WBSElementNwa,                 //WBS-element of Network Activity (prps.posid <- afvc.projn)
+
+//--Fields from view ZA_FI_RACCT_HIER_PAR, hierarchy 'NS00'
+    _GlHier(p_versn:'NS00').stufe as ergsl_stufe,  //Financial Statement Item Hierarchy Level (fagl_011pc.stufe)
+    _GlHier(p_versn:'NS00').ergsl_lev00,           //Financial Statement Item (fagl_011zc.ergsl) level 0   
+    _GlHier(p_versn:'NS00').ergsl_lev01,           //Financial Statement Item (fagl_011zc.ergsl) level 1   
+    _GlHier(p_versn:'NS00').ergsl_lev02,           //Financial Statement Item (fagl_011zc.ergsl) level 2   
+    _GlHier(p_versn:'NS00').ergsl_lev03,           //Financial Statement Item (fagl_011zc.ergsl) level 3   
+    _GlHier(p_versn:'NS00').ergsl_lev04,           //Financial Statement Item (fagl_011zc.ergsl) level 4   
+    _GlHier(p_versn:'NS00').ergsl_lev05            //Financial Statement Item (fagl_011zc.ergsl) level 5   
+}

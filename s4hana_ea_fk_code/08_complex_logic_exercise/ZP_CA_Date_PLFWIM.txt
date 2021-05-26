@@ -1,0 +1,49 @@
+/* Freek Keijzer, myBrand, 12.08.2020
+View to determine PLFWIM = "Period Last Full Week In Month"
+
+Layered structure of CDS-views:
+ZP_CA_DATE_PLFWIM
+|- ZB_CA_DATE_PLFWIM
+|  |- I_CalendarDate
+|     |- scal_tt_date
+|     |- scal_tt_month
+|- ZP_CA_DATE_PLFWIM_MO (2x)
+   |- ZB_CA_DATE_PLFWIM
+      |- ...
+      
+Steps:
+ZB_CA_DATE_PLFWIM:
+  Basic data
+  DaysLeftInMonth
+  DaysLeftInWeek
+  DaysLeftInMonthMinusWeek
+  YearMonthUp1
+ZP_CA_DATE_PLFWIM_MO:
+  For each month determine week number of last full week.
+ZP_CA_DATE_PLFWIM:
+  For each date determine which week number should be taken,
+  this month’s or last month’s.
+--------------------------------------------------------
+Change log: 
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'CA: PerLtstVolWkInMnd for Date'
+@AbapCatalog.sqlViewName: 'ZPCADATEPLFWIM'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZP_CA_DATE_PLFWIM as select from ZB_CA_DATE_PLFWIM as _Date
+  left outer join ZP_CA_DATE_PLFWIM_MO as _YM
+    on _YM.YearMonth = _Date.YearMonth
+  left outer join ZP_CA_DATE_PLFWIM_MO as _YMUp1
+    on _YMUp1.YearMonth = _Date.YearMonthUp1
+{
+key _Date.CalendarDate,
+    case
+      when _Date.DaysLeftInMonthMinusWeek < 0 then _YMUp1.YearWeek
+      else                                         _YM.YearWeek
+    end as YearWeekPLFWIM,
+    1 as Counter    //#Days in PerLFWIM
+}

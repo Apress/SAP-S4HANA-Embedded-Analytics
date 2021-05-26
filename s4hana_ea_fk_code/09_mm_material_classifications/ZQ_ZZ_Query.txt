@@ -1,0 +1,11 @@
+// Freek Keijzer, 24.01.2021, view for demo-purposes
+@EndUserText.label: 'ZQ_ZZ_Query'
+@AbapCatalog.sqlViewName: 'ZQZZQUERY'
+@VDM.viewType: #CONSUMPTION
+@Analytics.query: true
+define view ZQ_ZZ_Query as select from ZC_ZZ_Cube
+{
+key matnr, 
+    counter, 
+    _Mat
+}

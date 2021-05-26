@@ -1,0 +1,72 @@
+/* Freek Keijzer, myBrand, 20.03.2019
+Basic data for Commitments from Procurement
+Source tables:
+COOI   - "Commitments Management: Line Items"
+EKKN   - "Account Assignment in Purchasing Document"
+
+Only "Reference Document Category" = 'Purchase Order'.
+--------------------------------------------------------
+Change-log:
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'PUR: Data for Commitments'
+@AbapCatalog.sqlViewName: 'ZBPURCOOI'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZB_PUR_COOI as select from cooi
+  inner join ekkn
+    on ekkn.ebeln = cooi.refbn and
+       ekkn.ebelp = cooi.rfpos
+  left outer join tka01
+    on tka01.kokrs = cooi.kokrs
+{
+//--Fields from table COOI
+key cooi.refbt,                                  //Reference Document Category (cooi.refbt)
+key cooi.refbn,                                  //Reference Document (cooi.refbn)
+key cooi.rfpos,                                  //Reference Document Item (cooi.rfpos)
+key cooi.rfknt,                                  //Account Assignment Number of Reference Document (cooi.rfknt)
+key cooi.rftrm,                                  //Deadline Item of Reference Document (cooi.rftrm)
+key cooi.rfart,                                  //Reference Document Type (cooi.rfart)
+key cooi.lifnr,                                  //Account Number of Vendor or Creditor (cooi.lifnr)
+key cooi.lednr,                                  //Ledger for Controlling Objects (cooi.lifnr)
+key cooi.objnr,                                  //Object number (cooi.objnr)
+key cooi.hrkft,                                  //CO key subnumber (cooi.hrkft)
+key cooi.rforg,                                  //Reference Organizational Units (cooi.hrkft)
+key cooi.rftyp,                                  //Reference procedure(cooi.rftyp)
+key cooi.rfsys,                                  //Logical system of source document (cooi.rfsys)
+    cooi.gjahr,                                  //Fiscal Year (cooi.gjahr)
+    cooi.vbund,                                  //Company ID of trading partner (cooi.vbund)
+    cooi.beknz,                                  //Debit/credit indicator (cooi.beknz)
+    cooi.bldat,                                  //Document Date (cooi.bldat)
+    cooi.budat,                                  //Expected Debit Date (cooi.budat)
+    cooi.perio,                                  //Period (cooi.perio)
+    cooi.bukrs,                                  //Company Code (cooi.bukrs)
+    cooi.kokrs,                                  //Controlling Area (cooi.kokrs)
+    cooi.matnr,                                  //Material (cooi.matnr)
+    cooi.matkl,                                  //Material Group (cooi.matkl)
+    cooi.sgtxt,                                  //Segment text (cooi.sgtxt)
+    cooi.gesmng,                                 //Planned Quantity (cooi.gesmng, unit: cooi.meinh)
+    cooi.meinh,                                  //Unit of Measure (cooi.meinh)
+    cooi.megbtr,                                 //Total Quantity (cooi.megbtr, unit: cooi.meinh)
+    cooi.orgwtk,                                 //Planned Value in Controlling Area Currency (cooi.orgwtk, currency: tka01.waers)
+    cooi.wkgbtr,                                 //Total Value in Controlling Area Currency (cooi.wkgbtr, currency: tka01.waers)
+    cooi.loekz,                                  //Deletion indicator in purchasing document (cooi.loekz)
+    cooi.timestmp,                               //Timestamp (cooi.timestmp)
+
+//--Fields from table TKA01
+    tka01.waers,                                 //Currency Key (tka01.waers)
+    
+//--Fields from table EKKN
+    ekkn.sakto,                                  //G/L Account Number (ekkn.sakto)
+    ekkn.kostl,                                  //Cost Center (ekkn.kostl)
+    ekkn.aufnr,                                  //Order Number (ekkn.aufnr)
+    ekkn.prctr,                                  //Profit Center (ekkn.prctr)
+    ekkn.ps_psp_pnr as pspnr,                    //WBS-element, NUMC-8 (ekkn.ps_psp_pnr)
+
+//--Generic counter
+    1 as Counter                                 //Generic counter for records in table/view
+}
+where cooi.refbt = '020'  //--Only "Reference Document Category" = 'Purchase Order'

@@ -1,0 +1,37 @@
+/* Freek Keijzer, myBrand, 03.09.2019
+Texts for "Financial Statement Item".
+Is used with "flattened hierarchy" of GL Account.
+Source table:
+FAGL_011QT: "Fin. Statement Structure: Text for Fin. Statement Items"
+
+This view is for following hierarchy: 
+"Financial Statement Version" (fagl_011zc/pc.versn) = 'NS00'
+--------------------------------------------------------
+Change-log:
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'FI: Fin.Statement Version text NS00'
+@AbapCatalog.sqlViewName: 'ZTFIERGSLNS00'
+
+@ObjectModel.dataCategory: #TEXT
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@VDM.viewType: #BASIC
+@ClientHandling.algorithm: #SESSION_VARIABLE
+@Metadata.ignorePropagatedAnnotations: true
+@ObjectModel.usageType: {
+  dataClass: #CUSTOMIZING,
+  serviceQuality: #A,
+  sizeCategory: #S
+}
+
+define view ZT_FI_ERGSL_NS00 as select from fagl_011qt
+association [0..1] to I_Language as _Language on $projection.Language = _Language.Language
+{
+    @ObjectModel.foreignKey.association: '_Language'
+    @Semantics.language
+key spras            as Language,
+key ergsl            as Ergsl,
+    @Semantics.text
+    txt45            as ErgslName,
+    _Language
+} where versn = 'NS00' and txtyp = 'K'

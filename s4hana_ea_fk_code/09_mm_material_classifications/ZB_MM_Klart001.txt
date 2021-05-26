@@ -1,0 +1,37 @@
+/* Freek Keijzer, myBrand, 18.05.2020
+Data for Classification Characteristics of Material.
+Source tables:
+MARA  - "General Material Data"
+INOB  - "Link between Internal Number and Object"
+AUSP  - "Characteristic Values"
+CABN  - "Characteristic"
+Selection on "Class Type" (inob/ausp.klart) = '001' = 'Material'.
+--------------------------------------------------------
+Change-log: 
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'MM: Data for Material Classif.Charact.'
+@AbapCatalog.sqlViewName: 'ZBMMKLART001'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZB_MM_Klart001 as select from mara
+  inner join inob
+    on inob.objek = mara.matnr and
+       inob.klart = '001'
+  inner join ausp
+    on ausp.objek = inob.cuobj and
+       ausp.klart = '001'
+  inner join cabn
+    on cabn.atinn = ausp.atinn and
+       cabn.adzhl = ausp.adzhl
+{
+    mara.matnr,                        //Material (mara.matnr)/ Key of Object to be Classified (inob.objek)
+    ausp.atinn,                        //Internal characteristic (ausp/cabn.atinn)
+    ausp.atwrt,                        //Characteristic Value (ausp.atwrt)
+    ausp.atflv,                        //Internal floating point from (ausp.atflv)
+    cabn.atnam,                        //Characteristic Name (cabn.atnam)
+    cabn.atein                         //Single Value (cabn.atein)
+}

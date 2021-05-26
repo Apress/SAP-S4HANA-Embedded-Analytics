@@ -1,0 +1,36 @@
+/* Freek Keijzer, myBrand, 26.07.2019
+Text-view for Network. Source table:
+AUFK - “Order master data”
+For proper texts, following restriction required::
+* “Order Type” (aufk.autyp) = ‘Network’ (‘20’)
+--------------------------------------------------------
+Change-log: 
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'PS: Network texts'
+@AbapCatalog.sqlViewName: 'ZTPSNETWORK'
+@ObjectModel.representativeKey: 'Network'
+
+@ObjectModel.dataCategory: #TEXT
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@VDM.viewType: #BASIC
+@ClientHandling.algorithm: #SESSION_VARIABLE
+@Metadata.ignorePropagatedAnnotations: true
+@ObjectModel.usageType: {
+  dataClass: #CUSTOMIZING,
+  serviceQuality: #A,
+  sizeCategory: #S
+}
+
+define view ZT_PS_Network as select from aufk
+association [0..1] to I_Language as _Language on $projection.Language = _Language.Language
+{
+    @ObjectModel.foreignKey.association: '_Language'
+    @Semantics.language
+key 'N'              as Language,
+key aufnr            as Network,
+    @Semantics.text
+    ktext            as NetworkName,
+    _Language
+}
+where autyp = '20' //--Only texts for Network

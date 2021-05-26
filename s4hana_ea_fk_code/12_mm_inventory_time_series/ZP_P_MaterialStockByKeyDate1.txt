@@ -1,0 +1,64 @@
+/* Freek Keijzer, myBrand, 21.09.2020
+Copy of standard SAP view P_MaterialStockByKeyDate1.
+Only difference is selection from ZP_I_MaterialStock_Aggr
+instead of from I_MaterialStock_Aggr.
+--------------------------------------------------------
+Change-log: 
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'MM: ZP_P_MaterialStockByKeyDate1 (copy)'
+@AbapCatalog.sqlViewName: 'ZPMATSTKBKDATE1'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZP_P_MaterialStockByKeyDate1
+  with parameters
+    P_KeyDate : vdm_v_key_date
+  as select from ZP_I_MaterialStock_Aggr
+{
+      // Stock Identifier
+  key Material,
+  key Plant,
+  key StorageLocation,
+  key Batch,
+  key Supplier,
+  key SDDocument,
+  key SDDocumentItem,
+  key WBSElementInternalID,
+  key Customer,
+  key InventoryStockType,
+  key InventorySpecialStockType,
+  key CostEstimate,
+      // Units
+      @Semantics.unitOfMeasure
+  key MaterialBaseUnit,
+      // Stock Groups
+  key CompanyCode,
+  key FiscalYearVariant,
+  key StockChangeCategory,
+
+      @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+      sum(MatlWrhsStkQtyInMatlBaseUnit) as MatlWrhsStkQtyInMatlBaseUnit
+}
+where
+  MatlDocLatestPostgDate < :P_KeyDate
+group by
+  mandt,
+  Material,
+  Plant,
+  StorageLocation,
+  Batch,
+  Supplier,
+  SDDocument,
+  SDDocumentItem,
+  WBSElementInternalID,
+  Customer,
+  InventoryStockType,
+  InventorySpecialStockType,
+  CostEstimate,
+  MaterialBaseUnit,
+  CompanyCode,
+  FiscalYearVariant,
+  StockChangeCategory

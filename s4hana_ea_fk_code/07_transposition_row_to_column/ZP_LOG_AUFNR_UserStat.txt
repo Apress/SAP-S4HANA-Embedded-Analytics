@@ -1,0 +1,29 @@
+/* Freek Keijzer, myBrand, 02.06.2020
+Final view for User Status of Order.
+In this view the string is composed.
+Layered structure of CDS-views:
+  ZP_LOG_AUFNR_UserStat        - View for User Status of Order
+  |- ZP_LOG_AUFK_JEST_Str      - Preparation for composition of string
+     |- ZP_LOG_AUFK_JEST_Ag    - Aggregation of dataset to 1 line per order
+        |- ZP_LOG_AUFK_JEST    - "Flip" dataset from rows to columns
+           |- ZB_LOG_AUFK_JEST – View with basic data
+              |- aufk          - Table " Order master data "
+              |- jest          - Table " Individual Object Status "
+              |- t003o         - Table " Order Types "
+              |- tj30t         - Table " Texts for User Status "
+--------------------------------------------------------
+Change log:
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'LOG: User Status of Order'
+@AbapCatalog.sqlViewName: 'ZPLOGAUFNRUSRSTT'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZP_LOG_AUFNR_UserStat as select from ZP_LOG_AUFK_JEST_Str
+{
+    aufnr,
+    concat(str01,concat(str02,concat(str03,concat(str04,concat(str05,concat(str06,concat(str07,str08))))))) as AufnrUserStat
+}

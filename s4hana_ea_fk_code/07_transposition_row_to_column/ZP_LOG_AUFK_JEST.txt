@@ -1,0 +1,29 @@
+/* Freek Keijzer, myBrand, 02.06.2020
+"Flip" dataset from rows to columns.
+In the next step, this will be aggregated to 1 line per order.
+--------------------------------------------------------
+Changelog:
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'LOG: Data for User Status of Order'
+@AbapCatalog.sqlViewName: 'ZPLOGAUFKJEST'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZP_LOG_AUFK_JEST as select from ZB_LOG_AUFK_JEST
+{
+    aufnr,                                       //Order Number (aufk.aufnr)
+    inact,                                       //Indicator: Status Is Inactive (jest.inact)
+    txt04,                                       //Status CHAR-4 (tj30t.txt04)
+    case when inact = '' and txt04 = 'WOM'  then 'WOM'  else '' end as sta01,
+    case when inact = '' and txt04 = 'GGK'  then 'GGK'  else '' end as sta02,
+    case when inact = '' and txt04 = 'UITV' then 'UITV' else '' end as sta03,
+    case when inact = '' and txt04 = 'GERE' then 'GERE' else '' end as sta04,
+    case when inact = '' and txt04 = 'SLUI' then 'SLUI' else '' end as sta05,
+    case when inact = '' and txt04 = 'NGVU' then 'NGVU' else '' end as sta06,
+    case when inact = '' and txt04 = 'WGK'  then 'WGK'  else '' end as sta07,
+    case when inact = '' and txt04 = 'ANNU' then 'ANNU' else '' end as sta08
+    
+}

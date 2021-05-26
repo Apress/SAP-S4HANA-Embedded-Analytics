@@ -1,0 +1,376 @@
+/* Freek Keijzer, myBrand, 28.08.2020
+Based on standard SAP cube-view I_GoodsMovementCube.
+Source of transaction data is table MATDOC.
+Standard view has goods movements as quantity, not as amount,
+at least not as a useful figure.
+Standard view is on most detailed level = Material Document Item.
+
+Custom enhancements:
+- Goods movements as amounts using current price
+- Key+text option not working in SAP standard version for
+  Material Group and Material Type. This is repaired.
+- Storage Bin from table MARD
+
+Stock levels can be determined from goods movements with
+time characteristic (e.g. date) <= key date.
+
+Layered structure of SAP-delivered CDS-views from query down to table ...
+  C_GoodsMovementQuery                 - Query-view
+  |- I_GoodsMovementCube               - Cube-view
+     |- I_AugmentedGoodsMovement       - Data-integration
+        |- I_GoodsMovementDocument     - Data-integration
+           |- I_MaterialDocumentRecord - Basic view with field mappings
+              |- matdoc                - Source table Material Documents
+
+... has been modified to following structure
+  ZQ_MM_INV_GDSMNV                     - Query-view
+  |- ZC_MM_INV_GDSMNV                  - Cube-view
+     |- ZP_MM_INV_GDSMNV               - Data-integration
+        |- ZP_I_GoodsMovementDocument  - Data-integration
+           |- I_MaterialDocumentRecord - Basic view with field mappings
+              |- matdoc                - Source table Material Documents
+
+Main key figures:
+- Quantities:
+    MatlStkChangeQtyInBaseUnit
+    GoodsReceiptQtyInBaseUnit
+    GoodsIssueQtyInBaseUnit
+- Amounts based on value in Material Document
+  (not very useful, as revaluations are not taken into account):
+    GoodsMovementStkAmtInCCCrcy
+    GoodsReceiptAmountInCoCodeCrcy
+    GoodsIssueAmountInCoCodeCrcy
+- Amounts using current price (custom enhancement):
+    MatlStkChangeVal
+    GoodsReceiptVal
+    GoodsIssueVal
+--------------------------------------------------------
+Change-log: 
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'MM: Goods Movements & Stock'
+@AbapCatalog.sqlViewName: 'ZCMMINVGDSMV'
+
+@Analytics: { dataCategory: #CUBE, dataExtraction.enabled: true }
+@VDM.viewType: #COMPOSITE
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZC_MM_INV_GDSMV as select from ZP_MM_INV_GDSMV
+  association [0..1] to I_PurchasingGroup           as _PurchasingGroup               on  $projection.purchasinggroup = _PurchasingGroup.PurchasingGroup
+  association [0..1] to I_PurchasingOrganization    as _PurchasingOrganization        on  $projection.PurchasingOrganization = _PurchasingOrganization.PurchasingOrganization
+  association [0..1] to I_SalesOrganization         as _SalesOrganization             on  $projection.salesorganization = _SalesOrganization.SalesOrganization
+  association [0..1] to I_DistributionChannel       as _DistributionChannel           on  $projection.distributionchannel = _DistributionChannel.DistributionChannel
+  association [0..1] to I_Division                  as _Division                      on  $projection.OrganizationDivision = _Division.Division
+  association [0..1] to I_SalesGroup                as _SalesGroup                    on  $projection.salesgroup = _SalesGroup.SalesGroup
+  association [1..1] to E_MaterialDocumentItem      as _ProcessExtension              on  $projection.MaterialDocument = _ProcessExtension.MaterialDocument
+                                                                                      and $projection.MaterialDocumentYear = _ProcessExtension.MaterialDocumentYear
+                                                                                      and $projection.MaterialDocumentItem = _ProcessExtension.MaterialDocumentItem
+                                                                                      and $projection.MaterialDocumentRecordType = _ProcessExtension.MaterialDocumentRecordType
+//-------------------------------------------------------------------------------------------------
+//------Start of custom enhancement, part 1/2
+//-------------------------------------------------------------------------------------------------
+  association [0..1] to I_MaterialType  as _MaterialType   on $projection.materialtype    = _MaterialType.MaterialType
+  association [0..1] to I_MaterialGroup as _MaterialGroup  on $projection.materialgroup   = _MaterialGroup.MaterialGroup
+  association [0..1] to mard                               on $projection.Material        = mard.matnr and
+                                                              $projection.Plant           = mard.werks and
+                                                              $projection.StorageLocation = mard.lgort
+//-------------------------------------------------------------------------------------------------
+//------End of custom enhancement, part 1/2
+//-------------------------------------------------------------------------------------------------
+{
+  
+  @Semantics.calendar.year: true
+  key MaterialDocumentYear,
+  key MaterialDocument,
+  key MaterialDocumentItem,
+  @Consumption.filter.hidden: true
+  key MaterialDocumentRecordType,
+    
+//-------------------------------------------------------------------------------------------------
+//------Start of custom enhancement, part 2/2
+//-------------------------------------------------------------------------------------------------
+//--Additional field for determination of current price
+    CostEstimate,                                // Cost Estimate Number - Product Costing (matdoc.kalnr)
+
+//--Amounts using current price, logic copied from SAP standard view P_MatStkQtyValCur2
+//----Goods movement with +/- sign for stock level
+    @Semantics.amount.currencyCode: 'CompanyCodeCurrency'
+    @DefaultAggregation: #SUM
+    MatlStkChangeVal,
+
+//----Goods receipt
+    @Semantics.amount.currencyCode: 'CompanyCodeCurrency'
+    @DefaultAggregation: #SUM
+    cast ( case when StockChangeCategory = 'GR' then MatlStkChangeVal
+    end as nsdm_gr_amount preserving type) as GoodsReceiptVal,
+
+//----Good issue
+    @Semantics.amount.currencyCode: 'CompanyCodeCurrency'
+    @DefaultAggregation: #SUM
+    cast( case when StockChangeCategory = 'GI' then MatlStkChangeVal * -1 end
+      as nsdm_gi_amount) as GoodsIssueVal,   
+
+// externally associated properties required for drill-down
+    @ObjectModel.foreignKey.association: '_MaterialGroup'
+    _Material.MaterialGroup,
+    @ObjectModel.foreignKey.association: '_MaterialType'
+    _Material.MaterialType,
+
+//--Additional field from table MARD
+    mard.lgpbe as StorageBin,                    //Storage Bin (mard.lgpbe)
+
+//--Additional associations to be passed on to the queries
+    _MaterialGroup,
+    _MaterialType,
+//-------------------------------------------------------------------------------------------------
+//------End of custom enhancement, part 2/2
+//-------------------------------------------------------------------------------------------------
+
+      @ObjectModel.foreignKey.association: '_Plant'
+      Plant,
+      @ObjectModel.foreignKey.association: '_StorageLocation'
+      StorageLocation,
+      @ObjectModel.foreignKey.association: '_Material'
+      Material,
+      Batch,
+      @ObjectModel.foreignKey.association: '_InventorySpecialStockType'
+      InventorySpecialStockType,
+      @ObjectModel.foreignKey.association: '_InventoryStockType'
+      InventoryStockType,
+      @ObjectModel.foreignKey.association: '_BPStockOwner'
+      StockOwner,
+      @ObjectModel.foreignKey.association: '_CompanyCode'
+      CompanyCode,
+      InventorySpecialStockValnType,
+      @Semantics.currencyCode: true
+      CompanyCodeCurrency,
+      @Semantics.unitOfMeasure: true
+      MaterialBaseUnit,
+      IsReversalMovementType,
+      
+      
+      // Stock Transfers
+      // We do not show the plant nor storage location due to access restrictions which would have to be in place on the target
+      // and might filter rows which would otherwise bis visible. As long as an property based access restriction does not
+      // exist in CDS, we will go for this way.
+      //@ObjectModel.foreignKey.association: '_IssuingOrReceivingPlant'
+      //IssuingOrReceivingPlant,
+      //@ObjectModel.foreignKey.association: '_IssuingOrReceivingStorageLoc'
+      //IssuingOrReceivingStorageLoc,
+      @ObjectModel.foreignKey.association: '_IssgOrRcvgMaterial'
+      IssgOrRcvgMaterial,
+      IssgOrRcvgBatch,
+      @ObjectModel.foreignKey.association: '_IssgOrRcvgSpclStockInd'
+      IssgOrRcvgSpclStockInd,
+      @ObjectModel.foreignKey.association: '_IssuingOrReceivingStockType'
+      IssuingOrReceivingStockType,
+      
+      // Cancellation information
+      GoodsMovementIsCancelled,
+      
+      // Periods & Times
+      @Semantics.businessDate.at: true
+      DocumentDate,
+      @Semantics.businessDate.createdAt: true
+      PostingDate,
+      @Semantics.fiscal.yearVariant: true
+      FiscalYearVariant,
+      FiscalYear,
+      @Semantics.fiscal.yearPeriod: true
+      FiscalYearPeriod,
+      YearDay,
+      @Semantics.calendar.yearWeek: true
+      YearWeek,
+      @Semantics.calendar.yearMonth: true
+      YearMonth,
+      @Semantics.calendar.yearQuarter: true
+      YearQuarter,
+      @Semantics.calendar.quarter: true
+      CalendarQuarter,
+      @Semantics.calendar.month: true
+      CalendarMonth,
+      @Semantics.calendar.week: true
+      CalendarWeek,
+      @Semantics.calendar.dayOfYear: true
+      CalendarDay,
+      WeekDay,      
+      
+      // Reference Documents - must not refer to transaction dimension views (target dimension DLC would not be considered!)
+      SalesOrder,
+      SalesOrderItem,
+      SalesOrderScheduleLine,
+      PurchaseOrder,
+      PurchaseOrderItem,
+      DeliveryDocument,
+      DeliveryDocumentItem,
+      WBSElementInternalID,
+      ManufacturingOrder,
+      ManufacturingOrderItem,
+      
+      // Master Data fields out of the Reference Documents
+      @ObjectModel.foreignKey.association: '_PurchasingGroup'
+      _PurchaseOrder.PurchasingGroup,
+      @ObjectModel.foreignKey.association: '_PurchasingOrganization'
+      cast(_PurchaseOrder.PurchasingOrganization as nsdm_ekorg preserving type) as PurchasingOrganization,
+      @ObjectModel.foreignKey.association: '_SalesOrganization'
+      _SalesOrder.SalesOrganization,
+      @ObjectModel.foreignKey.association: '_DistributionChannel'
+      _SalesOrder.DistributionChannel,
+      @ObjectModel.foreignKey.association: '_Division'
+      cast(_SalesOrder.OrganizationDivision as nsdm_sales_division preserving type) as OrganizationDivision,
+      @ObjectModel.foreignKey.association: '_SalesGroup'
+      _SalesOrder.SalesGroup,
+      
+      // Other
+      @ObjectModel.foreignKey.association: '_GoodsMovementType'
+      GoodsMovementType,
+      @ObjectModel.foreignKey.association: '_GoodsMovementReasonCode'
+      GoodsMovementReasonCode,
+      @ObjectModel.foreignKey.association: '_InventoryValuationType'
+      InventoryValuationType,
+      @ObjectModel.foreignKey.association: '_Supplier'
+      Supplier,
+      @ObjectModel.foreignKey.association: '_Customer'
+      Customer,
+      
+      @ObjectModel.foreignKey.association: '_AccountAssignmentCategory'
+      AccountAssignmentCategory,
+      CostObject,
+      CostCenter,
+      @ObjectModel.foreignKey.association: '_ControllingArea'  
+      ControllingArea, // required to fulfill requirement to expose the full key (for cost center association)  
+      ProfitabilitySegment,
+      ProfitCenter,
+      @ObjectModel.foreignKey.association: '_GLAccount'
+      GLAccount,
+      @ObjectModel.foreignKey.association: '_FunctionalArea'
+      FunctionalArea,
+      
+      // Classifications
+      @ObjectModel.foreignKey.association: '_StockChangeCategory'
+      StockChangeCategory,
+      IsEffectiveGoodsMovement,
+      IsConsumptionMovement,
+      IsCrossPlantTransfer,
+      IsStorageLocChangeByTransf,
+      IsMaterialChangeByTransf,
+      IsBatchChangeByTransf,
+      IsSpclStkTypeChangeByTransf,
+      IsStockTypeChangeByTransf,
+      
+      // Counts
+      @DefaultAggregation: #SUM
+      NumberOfGoodsMovements,
+      @DefaultAggregation: #SUM
+      NumberOfGoodsIssues,
+      @DefaultAggregation: #SUM
+      NumberOfGoodsReceipts,
+      
+      // Amounts
+      @Semantics.amount.currencyCode: 'CompanyCodeCurrency'
+      @DefaultAggregation: #SUM
+      GoodsMovementStkAmtInCCCrcy,
+      @Semantics.amount.currencyCode: 'CompanyCodeCurrency'
+      @DefaultAggregation: #SUM
+      GoodsMvtCnsmpnAmtInCCCrcy,
+      @Semantics.amount.currencyCode: 'CompanyCodeCurrency'
+      @DefaultAggregation: #SUM
+      GoodsIssueAmountInCoCodeCrcy,
+      @Semantics.amount.currencyCode: 'CompanyCodeCurrency'
+      @DefaultAggregation: #SUM
+      GoodsReceiptAmountInCoCodeCrcy,
+      
+      // Quantities
+      @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+      @DefaultAggregation: #SUM
+      MatlStkChangeQtyInBaseUnit,
+      @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+      @DefaultAggregation: #SUM
+      MatlCnsmpnQtyInMatlBaseUnit,      
+      
+      // Consumption Quantity KPIs
+      @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+      @DefaultAggregation: #MIN
+      cast( abs(MatlCnsmpnQtyInMatlBaseUnit) as nsdm_min_cons_qty preserving type) as MinCnsmpnQtyInBaseUnit, 
+      @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+      @DefaultAggregation: #MAX
+      cast( abs(MatlCnsmpnQtyInMatlBaseUnit) as nsdm_max_cons_qty preserving type) as MaxCnsmpnQtyInBaseUnit, 
+           
+      @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+      @DefaultAggregation: #SUM
+      GoodsIssueQtyInBaseUnit,
+      @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+      @DefaultAggregation: #MIN
+      cast( abs(GoodsIssueQtyInBaseUnit) as nsdm_min_gi_qty preserving type) as MinGoodsIssueQtyInBaseUnit,
+      @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+      @DefaultAggregation: #MAX
+      cast( abs(GoodsIssueQtyInBaseUnit) as nsdm_max_gi_qty preserving type) as MaxGoodsIssueQtyInBaseUnit,
+            
+      @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+      @DefaultAggregation: #SUM
+      GoodsReceiptQtyInBaseUnit,   
+      @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+      @DefaultAggregation: #MIN
+      cast( abs(GoodsReceiptQtyInBaseUnit) as nsdm_min_gr_qty preserving type) as MinGoodsRcptQtyInBaseUnit,   
+      @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+      @DefaultAggregation: #MAX
+      cast( abs(GoodsReceiptQtyInBaseUnit) as nsdm_max_gr_qty preserving type) as MaxGoodsRcptQtyInBaseUnit,   
+
+      @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+      @DefaultAggregation: #SUM
+      TotalGdsMvtQtyInBaseUnit,      
+      
+      // Times
+      @DefaultAggregation: #MIN
+      cast ( PostingDate as nsdm_first_mvt_posting_date preserving type) as FirstGoodsMovementPostingDate,
+      @DefaultAggregation: #MAX
+      cast ( PostingDate as nsdm_last_mvt_posting_date preserving type) as LastGoodsMovementPostingDate,
+      
+      // Authorization check relevant fields
+      @Consumption.hidden: true
+      IsStorLocAuthznCheckActive,
+      @Consumption.hidden: true
+      IsIssgOrRcvgStorLocAuthChkActv,
+      
+      // Master Data Associations of the Dimension View
+      _Plant,
+      _StorageLocation,
+      _Material,
+      _InventorySpecialStockType,
+      _InventoryStockType,
+      _IssgOrRcvgMaterial,
+      //_IssuingOrReceivingPlant,
+      //_IssuingOrReceivingStorageLoc,
+      _IssgOrRcvgSpclStockInd,
+      _IssuingOrReceivingStockType,
+      _CostCenter,
+      _ControllingArea,
+      _AccountAssignmentCategory,
+      _ProfitCenter,
+      _GLAccount,
+      _FunctionalArea,
+      
+      _GoodsMovementType,
+      _GoodsMovementReasonCode,
+      _InventoryValuationType,
+      _CompanyCode,
+      _Currency,
+      _MaterialBaseUnit,
+      _StockChangeCategory,
+      
+      // additionally defined associations
+      _Customer,
+      _Supplier,
+      _SupplierCompanyByPlant,
+      _CustomerCompanyByPlant,
+      _BPStockOwner,
+      _PurchasingGroup,
+      _PurchasingOrganization,
+      _SalesOrganization,
+      _DistributionChannel,
+      _Division,
+      _SalesGroup
+      
+}                                                                                                                                                 

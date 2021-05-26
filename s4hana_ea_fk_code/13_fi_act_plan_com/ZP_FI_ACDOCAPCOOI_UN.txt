@@ -1,0 +1,316 @@
+/* Freek Keijzer, myBrand, 09.03.2020
+Data-integration view type union.
+Source tables:
+ACDOCA - "Universal Journal Entry Line Items"
+ACDOCP - "Plan Data Line Items"
+COOI   - "Commitments Management: Line Items"
+EKKN   - "Account Assignment in Purchasing Document"
+
+Transformations in this view:
+* Mapping Quantity Actuals/Plan (acdoca.msl/acdocp.vmsl) 
+  and unit (acdoca.runit/acdocp.rvunit) to the same fields
+* Creation Date determined via 3 different methods:
+  1. Conversion of acdoca.timestamp
+  2. First 8 characters of acdocp.reqtsn
+  3. Field value of cooi.bldat (Document Date)
+* Mapping from Debit/Credit Indicators Plan (acdocp.co_belkz)
+  and Commitments (cooi.beknz) to Debit/Credit Indicator
+  Actuals (acdoca.drcrk) values 'S(oll)' and 'H(aben)'.
+--------------------------------------------------------
+Change-log: 
+--------------------------------------------------------
+JIRA-1234, 17.05.2020, Danny Linders
+UNION replaced by UNION ALL to solve performance issues. 
+--------------------------------------------------------*/
+@EndUserText.label: 'FI: Data Act.+Plan+Commitm., union'
+@AbapCatalog.sqlViewName: 'ZPFIACDCAPCOOIUN'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZP_FI_ACDOCAPCOOI_UN as
+//--------------------------------------------------------
+select from ZB_FIGL_ACDOCA
+{
+    'ACDOCA' as Source,                          //Source = 'ACDOCA', 'ACDOCP' or 'COOI'
+
+//--Fields from table Actuals ACDOCA
+    rldnr,                                       //Ledger in General Ledger Accounting (acdoca.rldnr)
+    rbukrs,                                      //Company Code (acdoca.rbukrs)
+    gjahr,                                       //Fiscal Year (acdoca.gjahr)
+    belnr,                                       //Accounting Document (acdoca.belnr)
+    docln,                                       //Accounting Document Item (acdoca.docln)
+    rmvct,                                       //Transaction type (acdoca.rmvct)
+    awtyp,                                       //Reference procedure (acdoca.awtyp)
+    racct,                                       //Account Number (acdoca.racct)
+    rcntr,                                       //Cost Center (acdoca.rcntr)
+    prctr,                                       //Profit Center (acdoca.prctr)
+    rbusa,                                       //Business Area (acdoca.rbusa)
+    kokrs,                                       //Controlling Area (acdoca.kokrs)
+    rassc,                                       //Company ID of trading partner (acdoca.rassc)
+    ksl,                                         //Amount in Global Currency (acdoca.ksl)
+    rkcur,                                       //Global Currency (acdoca.rkcur)
+    msl as quant_ap,                             //Quantity (acdoca.msl/acdocp.vmsl -> quant_ap)
+    runit as quant_ap_unit,                      //UoM for Quantity (acdoca.runit/acdocp.rvunit -> quant_ap_unit)
+    drcrk,                                       //Debit/Credit Indicator (acdoca.drcrk)
+    poper,                                       //Posting period (acdoca.poper)
+    periv,                                       //Fiscal Year Variant (acdoca.periv)
+    fiscyearper,                                 //Period/year (acdoca.fiscyearper)
+    budat,                                       //Posting Date (acdoca.budat)
+    bldat,                                       //Document Date (acdoca.bldat)
+    blart,                                       //Document type (acdoca.blart)
+    zuonr,                                       //Assignment number (acdoca.zuonr)
+    bschl,                                       //Posting Key (acdoca.bschl)
+    usnam,                                       //User Name (acdoca.usnam)
+    timestamp,                                   //UTC-timestamp (acdoca.timestamp)
+    ktopl,                                       //Chart of Accounts (acdoca.ktopl)
+    ebeln,                                       //Purchasing Document (acdoca.ebeln)
+    ebelp,                                       //Purchasing Document Item (acdoca.ebelp)
+    sgtxt,                                       //Item Text (acdoca.sgtxt)
+    matnr,                                       //Material (acdoca.matnr)
+    werks,                                       //Plant (acdoca.werks)
+    lifnr,                                       //Vendor (acdoca.lifnr)
+    kunnr,                                       //Customer (acdoca.kunnr)
+    koart,                                       //Account Type (acdoca.koart)
+    mwskz,                                       //Tax on sales/purchases code (acdoca.mwskz)
+    hbkid,                                       //Short key for a house bank (acdoca.hbkid)
+    hktid,                                       //ID for account details (acdoca.hktid)
+    xopvw,                                       //Indicator: Open Item Management? (acdoca.xopvw)
+    augdt,                                       //Clearing Date (acdoca.augd)
+    augbl,                                       //Document Number of the Clearing Document (acdoca.augbl)
+    auggj,                                       //Fiscal Year of Clearing Document (acdoca.auggj)
+    anln1,                                       //Main Asset Number (acdoca.anln1)
+    anln2,                                       //Asset Subnumber (acdoca.anln2)
+    anlgr,                                       //Group Asset (acdoca.anlgr)
+    anlgr2,                                      //Subnumber of Group Asset (acdoca.anlgr2)
+    anlkl,                                       //Asset Class (acdoca.anlkl)
+    bwtar,                                       //Valuation Type (acdoca.bwtar)
+    bwkey,                                       //Valuation area (acdoca.bwkey)
+    objnr,                                       //Object number (acdoca.objnr)
+    accas,                                       //Account Assignment (acdoca.accas)
+    accasty,                                     //Object Type (acdoca.accasty)
+    lstar,                                       //Activity Type (acdoca.lstar)
+    aufnr,                                       //Order Number (acdoca.aufnr)
+    autyp,                                       //Order category (acdoca.autyp)
+    ps_psp_pnr as pspnr,                         //WBS-element, NUMC-8 (acdoca.ps_psp_pnr)
+    nplnr,                                       //Network Number (acdoca.nplnr)
+    nplnr_vorgn,                                 //Network activity (acdoca.nplnr_vorgn)
+    paccas,                                      //Partner Account Assignment (acdoca.paccas)
+    paccasty,                                    //Partner Object Type (acdoca.paccasty)
+    matkl,                                       //Product Sold Group (acdoca.matkl)
+    
+//--Fields only in table Plan ACDOCP
+    cast('00000000000000000000000' as rspm_request_tsn) as reqtsn,
+    cast('000000' as rsdatapid) as datapakid,
+    0 as record,
+    cast('          ' as fcom_category) as category,
+
+//--Fields from view Commitments ZB_PUR_COOI
+    cast(0 as menge1) as gesmng,
+    cast('   ' as co_meinh) as meinh_cooi,
+    cast(0 as megxxx) as megbtr,
+    cast(0 as wertk1) as orgwtk,
+    cast(0 as wkgxxx) as wkgbtr,
+    cast(' ' as eloek) as loekz_cooi,
+    cast('     ' as waers) as tka01_cur,
+
+//--Creation Date determined via different methods
+    tstmp_to_dats(timestamp,abap_system_timezone( $session.client,'NULL' ),$session.client,'NULL' ) as zcpudt,
+                                                 //Creation Date based on acdoca.timestamp
+
+//--Generic counter
+    1 as Counter                                 //Generic counter for records in table/view
+}
+//--------------------------------------------------------
+union all
+//--------------------------------------------------------
+select from ZB_FIGL_ACDOCP
+{
+    'ACDOCP' as Source,                          //Source = 'ACDOCA', 'ACDOCP' or 'COOI'
+
+//--Fields from table Actuals ACDOCA
+    rldnr,                                       //Ledger in General Ledger Accounting (acdocp.rldnr)
+    rbukrs,                                      //Company Code (acdocp.rbukrs)
+    ryear as gjahr,                              //General Ledger Fiscal Year (acdocp.ryear)
+    '' as belnr,
+    '' as docln,
+    rmvct,                                       //Transaction type (acdocp.rmvct)
+    awtyp,                                       //Reference procedure (acdocp.awtyp)
+    racct,                                       //Account Number (acdocp.racct)
+    rcntr,                                       //Cost Center (acdocp.rcntr)
+    prctr,                                       //Profit Center (acdocp.prctr)
+    rbusa,                                       //Business Area (acdocp.rbusa)
+    kokrs,                                       //Controlling Area (acdocp.kokrs)
+    rassc,                                       //Company ID of trading partner (acdocp.rassc)
+    ksl,                                         //Amount in Global Currency (acdocp.ksl)
+    rkcur,                                       //Global Currency (acdocp.rkcur)
+    vmsl as quant_ap,                            //Quantity (acdoca.msl/acdocp.vmsl -> quant_ap)
+    rvunit as quant_ap_unit,                     //UoM of Quantity (acdoca.runit/acdocp.rvunit -> quant_ap_unit)
+    case co_belkz                                //CO Debit/Credit Indicator (acdocp.co_belkz)
+      when 'D' then 'S'
+      else 'H'
+    end as drcrk,                                //Debit/Credit Indicator (acdocp.co_belkz -> drcrk)
+    poper,                                       //Posting period (acdocp.poper)
+    periv,                                       //Fiscal Year Variant (acdocp.periv)
+    fiscyearper,                                 //Period/year (acdocp.fiscyearper)
+    budat,                                       //Posting Date (acdocp.budat)
+    '00000000' as bldat,
+    '' as blart,
+    '' as zuonr,
+    '' as bschl,
+    usnam,                                       //User Name (acdocp.usnam)
+    0.0 as timestamp,
+    ktopl,                                       //Chart of Accounts (acdocp.ktopl)
+    '' as ebeln,
+    '00000' as ebelp,
+    sgtxt,                                       //Item Text (acdocp.sgtxt)
+    matnr,                                       //Material (acdocp.matnr)
+    werks,                                       //Plant (acdocp.werks)
+    '' as lifnr,
+    kunnr,                                       //Customer (acdocp.kunnr)
+    '' as koart,
+    '' as mwskz,
+    '' as hbkid,
+    '' as hktid,
+    '' as xopvw,
+    '00000000' as augdt,
+    '' as augbl,
+    '0000' as auggj,
+    '' as anln1,
+    '' as anln2,
+    '' as anlgr,
+    '' as anlgr2,
+    '' as anlkl,
+    '' as bwtar,
+    '' as bwkey,
+    '' as objnr,
+    '' as accas,
+    accasty,                                     //Object Type (acdocp.accasty)
+    lstar,                                       //Activity Type (acdocp.lstar)
+    aufnr,                                       //Order Number (acdocp.aufnr)
+    '00' as autyp,
+    ps_psp_pnr as pspnr,                         //WBS-element, NUMC-8 (acdocp.ps_psp_pnr)
+    '' as nplnr,
+    '' as nplnr_vorgn,
+    '' as paccas,
+    paccasty,                                    //Partner Object Type (acdocp.paccasty)
+    matkl,                                       //Product Sold Group (acdocp.matkl)
+    
+//--Fields only in table Plan ACDOCP
+    reqtsn,                                      //Request Transaction Sequence Number (acdocp.reqtsn)
+    datapakid,                                   //Data packet number (acdocp.datapakid)
+    record,                                      //Data record number (acdocp.record)
+    category,                                    //Category (acdocp.category)
+
+//--Fields from view Commitments ZB_PUR_COOI
+    0.0 as gesmng,
+    '   ' as meinh_cooi,
+    0.0 as megbtr,
+    0.0 as orgwtk,
+    0.0 as wkgbtr,
+    ' ' as loekz_cooi,
+    '     ' as tka01_cur,
+
+//--Creation Date determined via different methods
+    left(reqtsn,8) as zcpudt,                    //Aanmaakdatum obv acdocp.reqtsn
+    
+//--Generic counter
+    1 as Counter                                 //Generic counter for records in table/view
+}
+//--------------------------------------------------------
+union all
+//--------------------------------------------------------
+select from ZB_PUR_COOI
+{
+    'COOI' as Source,                            //Source = 'ACDOCA', 'ACDOCP' or 'COOI'
+
+//--Fields from table Actuals ACDOCA
+    '0L' as rldnr,                               //Ledger in General Ledger Accounting
+    bukrs as rbukrs,                             //Company Code (cooi.bukrs)
+    gjahr,                                       //Fiscal Year (cooi.gjahr)
+    '' as belnr,
+    '' as docln,
+    '' as rmvct,
+    rftyp as awtyp,                              //Reference procedure (cooi.rftyp)
+    sakto as racct,                              //G/L Account Number (ekkn.sakto)
+    kostl as rcntr,                              //Cost Center (ekkn.kostl)
+    prctr,                                       //Profit Center (ekkn.prctr)
+    '' as rbusa,
+    kokrs,                                       //Controlling Area (cooi.kokrs)
+    vbund as rassc,                              //Company ID of trading partner (cooi.vbund)
+    0.0 as ksl,
+    '     ' as rkcur,
+    0.0 as quant_ap,
+    '   ' as quant_ap_unit,
+    case beknz                                   //Debit/credit indicator (cooi.beknz)
+      when 'D' then 'S'
+      else 'H'
+    end as drcrk,                                //Debit/Credit Indicator (cooi.beknz -> drcrk)
+    perio as poper,                              //Period (cooi.perio)
+    'K4' as periv,                               //Fiscal Year Variant
+    concat(gjahr,perio) as fiscyearper,          //Period/year
+    budat,                                       //Expected Debit Date (cooi.budat)
+    bldat,                                       //Document Date (cooi.bldat)
+    '' as blart,
+    '' as zuonr,
+    '' as bschl,
+    '' as usnam,
+    timestmp as timestamp,                       //Timestamp (cooi.timestmp)
+    'NS00' as ktopl,                             //Chart of Accounts
+    refbn as ebeln,                              //Reference Document (cooi.refbn = ebeln)
+    rfpos as ebelp,                              //Reference Document Item (cooi.rfpos = ebelp)
+    sgtxt,                                       //Segment text (cooi.sgtxt)
+    matnr,                                       //Material (cooi.matnr)
+    '' as werks,
+    lifnr,                                       //Account Number of Vendor or Creditor (cooi.lifnr)
+    '' as kunnr,
+    '' as koart,
+    '' as mwskz,
+    '' as hbkid,
+    '' as hktid,
+    '' as xopvw,
+    '00000000' as augdt,
+    '' as augbl,
+    '0000' as auggj,
+    '' as anln1,
+    '' as anln2,
+    '' as anlgr,
+    '' as anlgr2,
+    '' as anlkl,
+    '' as bwtar,
+    '' as bwkey,
+    objnr,                                       //Object number (cooi.objnr)
+    '' as accas,
+    '' as accasty,
+    '' as lstar,
+    aufnr,                                       //Order number (ekkn.aufnr)
+    '00' as autyp,
+    pspnr,                                       //WBS-element, NUMC-8 (ekkn.ps_psp_pnr)
+    '' as nplnr,
+    '' as nplnr_vorgn,
+    '' as paccas,
+    '' as paccasty,
+    matkl,                                       //Material Group (cooi.matkl)
+    
+//--Fields only in table Plan ACDOCP
+    '00000000000000000000000' as reqtsn,
+    '000000' as datapakid,
+    0 as record,
+    '          ' as category,
+    
+//--Fields from view Commitments ZB_PUR_COOI
+    gesmng,                                      //Planned Quantity (cooi.gesmng, unit: cooi.meinh)
+    meinh as meinh_cooi,                         //Unit of Measure (cooi.meinh)
+    megbtr,                                      //Total Quantity (cooi.megbtr, unit: cooi.meinh)
+    orgwtk,                                      //Planned Value (cooi.orgwtk, currency: tka01.waers)
+    wkgbtr,                                      //Total Value (cooi.wkgbtr, currency: tka01.waers)
+    loekz as loekz_cooi,                         //Deletion indicator in purchasing document (cooi.loekz)
+    waers as tka01_cur,                          //Currency Key (tka01.waers)
+
+//--Creation Date determined via different methods
+    bldat as zcpudt,                             //Document Date (cooi.bldat)
+
+//--Generic counter
+    1 as Counter                                 //Generic counter for records in table/view
+}

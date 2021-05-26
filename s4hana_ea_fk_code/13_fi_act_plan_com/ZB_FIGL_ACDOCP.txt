@@ -1,0 +1,56 @@
+/* Freek Keijzer, myBrand, 26.08.2019
+Basic view on following table:
+ACDOCP - "Plan Data Line Items".
+--------------------------------------------------------
+Change-log: 
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'FI-GL: Data from ACDOCP'
+@AbapCatalog.sqlViewName: 'ZBFIGLACDOCP'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZB_FIGL_ACDOCP as select from acdocp
+{
+key reqtsn,                                      //Request Transaction Sequence Number (acdocp.reqtsn)
+key datapakid,                                   //Data packet number (acdocp.datapakid)
+key record,                                      //Data record number (acdocp.record)
+    ryear,                                       //General Ledger Fiscal Year (acdocp.ryear)
+    rldnr,                                       //Ledger in General Ledger Accounting (acdocp.rldnr)
+    racct,                                       //Account Number (acdocp.racct)
+    rbukrs,                                      //Company Code (acdocp.rbukrs)
+    awtyp,                                       //Reference procedure (acdocp.awtyp)
+    usnam,                                       //User Name (acdocp.usnam)
+    category,                                    //Category (acdocp.category)
+    rmvct,                                       //Transaction type (acdocp.rmvct)
+    rkcur,                                       //Global Currency (acdocp.rkcur)
+    rvunit,                                      //UoM of Quantity (acdocp.vmsl)
+    rcntr,                                       //Cost Center (acdocp.rcntr)
+    prctr,                                       //Profit Center (acdocp.prctr)
+    rbusa,                                       //Business Area (acdocp.rbusa)
+    kokrs,                                       //Controlling Area (acdocp.kokrs)
+    rassc,                                       //Company ID of trading partner (acdocp.rassc)
+    ksl,                                         //Amount in Global Currency (acdocp.ksl)
+    vmsl,                                        //Quantity (acdocp.vmsl)
+    poper,                                       //Posting period (acdocp.poper)
+    budat,                                       //Posting Date (acdocp.budat)
+    periv,                                       //Fiscal Year Variant (acdocp.periv)
+    fiscyearper,                                 //Period/year (acdocp.fiscyearper)
+    ktopl,                                       //Chart of Accounts (acdocp.ktopl)
+    matnr,                                       //Material (acdocp.matnr)
+    werks,                                       //Plant (acdocp.werks)
+    kunnr,                                       //Customer (acdocp.kunnr)
+    sgtxt,                                       //Item Text (acdocp.sgtxt)
+    co_belkz,                                    //CO Debit/Credit Indicator (acdocp.co_belkz) 
+    ps_psp_pnr,                                  //WBS-element, NUMC-8 (acdocp.ps_psp_pnr)
+    accasty,                                     //Object Type (acdocp.accasty)
+    lstar,                                       //Activity Type (acdocp.lstar)
+    aufnr,                                       //Order Number (acdocp.aufnr)
+    paccasty,                                    //Partner Object Type (acdocp.paccasty)
+    matkl,                                       //Product Sold Group (acdocp.matkl)
+    
+//--Generic counter
+    1 as Counter                                 //Generic counter for records in table/view
+}

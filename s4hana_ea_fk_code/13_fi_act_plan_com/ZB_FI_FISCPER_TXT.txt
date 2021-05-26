@@ -1,0 +1,37 @@
+/* Freek Keijzer, myBrand, 24.10.2019
+Basic-view for texts of Fiscal Period CHAR-3.
+Source table:
+T009C: "Period names"
+
+Table has no line for period ‘000’.
+Therefore, values for short and long text are
+Introduced in this view.
+--------------------------------------------------------
+Change-log:
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'FI: Data for Fiscal Period texts'
+@AbapCatalog.sqlViewName: 'ZBFIFISCPER_TXT'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZB_FI_FISCPER_TXT as 
+select from t009c
+{
+key spras,
+key poper,
+    cast(poper as abap.char(3)) as FiscPer,
+    ktext,
+    ltext
+} where periv = 'K4' and bdatj = '0000' and spras = 'E'
+union
+select from t009c  //Trick: get 1 random line from table and introduce new values
+{
+    spras,
+    '000'                       as poper,
+    '000'                       as FiscPer,
+    'OBL'                       as ktext,
+    'Opening Balance'           as ltext
+} where periv = 'K4' and bdatj = '0000' and poper = '001' and spras = 'E'

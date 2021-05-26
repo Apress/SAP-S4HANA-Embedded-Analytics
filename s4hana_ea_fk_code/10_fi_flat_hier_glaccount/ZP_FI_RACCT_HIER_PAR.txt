@@ -1,0 +1,125 @@
+/* Freek Keijzer, myBrand, 04.09.2019
+Dataset for flattened hierarchy of GL Account.
+
+In this view "steps up" are translated to a certain level.
+--------------------------------------------------------
+Change-log: 
+--------------------------------------------------------
+JIRA-story 12345, 27-05-2020, Danny Linders
+Parametrized version of ZB_FI_RACCT_HIER
+with fagl_011zc/pc.versn = parameter p_versn in order 
+to be able to use 1 view for different hierarchies.
+--------------------------------------------------------*/
+@EndUserText.label: 'FI: Data for G/L Account Hierarchy'
+@AbapCatalog.sqlViewName: 'ZPFIRACCTHIERPAR'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZP_FI_RACCT_HIER_PAR
+  with parameters
+    p_versn : versn_011
+as select from ZB_FI_RACCT_HIER_PAR(p_versn: :p_versn)
+{
+//ska1 
+key ktopl,                        //Chart of Accounts (ska1.ktopl)
+key saknr,                        //G/L Account Number (ska1.saknr)
+
+//fagl_011zc, fagl_011pc
+    stufe,                        //Financial Statement Item Hierarchy Level (fagl_011pc.stufe)
+    
+    case stufe
+      when '10' then ergsl_up9
+      when '09' then ergsl_up8
+      when '08' then ergsl_up7
+      when '07' then ergsl_up6
+      when '06' then ergsl_up5
+      when '05' then ergsl_up4
+      when '04' then ergsl_up3
+      when '03' then ergsl_up2
+      when '02' then ergsl_up1
+      else ''
+    end as ergsl_lev00,           //Financial Statement Item (fagl_011zc.ergsl) level 0
+    
+    case stufe
+      when '10' then ergsl_up8
+      when '09' then ergsl_up7
+      when '08' then ergsl_up6
+      when '07' then ergsl_up5
+      when '06' then ergsl_up4
+      when '05' then ergsl_up3
+      when '04' then ergsl_up2
+      when '03' then ergsl_up1
+      when '02' then ergsl
+      else ''
+    end as ergsl_lev01,           //Financial Statement Item (fagl_011zc.ergsl) level 1
+    
+    case stufe
+      when '10' then ergsl_up7
+      when '09' then ergsl_up6
+      when '08' then ergsl_up5
+      when '07' then ergsl_up4
+      when '06' then ergsl_up3
+      when '05' then ergsl_up2
+      when '04' then ergsl_up1
+      when '03' then ergsl
+      else ''
+    end as ergsl_lev02,           //Financial Statement Item (fagl_011zc.ergsl) level 2
+    
+    case stufe
+      when '10' then ergsl_up6
+      when '09' then ergsl_up5
+      when '08' then ergsl_up4
+      when '07' then ergsl_up3
+      when '06' then ergsl_up2
+      when '05' then ergsl_up1
+      when '04' then ergsl
+      else ''
+    end as ergsl_lev03,           //Financial Statement Item (fagl_011zc.ergsl) level 3
+    
+    case stufe
+      when '10' then ergsl_up5
+      when '09' then ergsl_up4
+      when '08' then ergsl_up3
+      when '07' then ergsl_up2
+      when '06' then ergsl_up1
+      when '05' then ergsl
+      else ''
+    end as ergsl_lev04,           //Financial Statement Item (fagl_011zc.ergsl) level 4
+    
+    case stufe
+      when '10' then ergsl_up4
+      when '09' then ergsl_up3
+      when '08' then ergsl_up2
+      when '07' then ergsl_up1
+      when '06' then ergsl
+      else ''
+    end as ergsl_lev05,           //Financial Statement Item (fagl_011zc.ergsl) level 5
+    
+    case stufe
+      when '10' then ergsl_up3
+      when '09' then ergsl_up2
+      when '08' then ergsl_up1
+      when '07' then ergsl
+      else ''
+    end as ergsl_lev06,           //Financial Statement Item (fagl_011zc.ergsl) level 6
+    
+    case stufe
+      when '10' then ergsl_up2
+      when '09' then ergsl_up1
+      when '08' then ergsl
+      else ''
+    end as ergsl_lev07,           //Financial Statement Item (fagl_011zc.ergsl) level 7
+    
+    case stufe
+      when '10' then ergsl_up1
+      when '09' then ergsl
+      else ''
+    end as ergsl_lev08,           //Financial Statement Item (fagl_011zc.ergsl) level 8
+    
+    case stufe
+      when '10' then ergsl
+      else ''
+    end as ergsl_lev09            //Financial Statement Item (fagl_011zc.ergsl) level 9
+}

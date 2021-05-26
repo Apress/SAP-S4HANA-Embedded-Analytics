@@ -1,0 +1,308 @@
+/* Freek Keijzer, myBrand, 28.08.2020
+In selection screen a.o. entries for 'Start period' and 'End period'.
+In initial view following key figures:
+- Stock Quantity/Value at start of period
+- Receipt/Issue as Quantity/Value within period
+- Stock Quantity/Value at end of period
+Drill-down can go down to most detailed level:
+Material Document Item.
+
+Stock levels are determined from goods movements with
+Posting Date <= key date.
+
+Key figures taken from cube-view:
+- Quantities:
+    MatlStkChangeQtyInBaseUnit
+    GoodsReceiptQtyInBaseUnit
+    GoodsIssueQtyInBaseUnit
+- Amounts using current price (custom enhancement):
+    MatlStkChangeVal
+    GoodsReceiptVal
+    GoodsIssueVal
+    
+Key figures defined in this query-view:
+- Quantities:
+    MatlStkQtyStart
+    MatlStgQtyEnd
+    GoodsReceiptQtyStart
+    GoodsIssueQtyStart
+    GoodsReceiptQtyEnd
+    GoodsIssueQtyEnd
+    GoodsReceiptQtyInPer
+    GoodsIssueQtyInPer
+- Amounts using current price:
+    MatlStkValStart
+    MatlStkValEnd
+    GoodsReceiptValStart
+    GoodsIssueValStart
+    GoodsReceiptValEnd
+    GoodsIssueValEnd
+    GoodsReceiptValInPer
+    GoodsIssueValInPer
+--------------------------------------------------------
+Change-log: 
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'MM: Goods Movements & Stock, 1 period'
+@AbapCatalog.sqlViewName: 'ZQMMINVGDSMV1P'
+
+@VDM.viewType: #CONSUMPTION
+@Analytics.query: true
+@Analytics.settings.maxProcessingEffort: #HIGH
+@OData.publish: true
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZQ_MM_INV_GDSMV_1PER
+with parameters
+    @EndUserText.label: 'Start period'
+    @AnalyticsDetails.query.variableSequence : 110
+    p_StartDate : abap.dats,
+    @EndUserText.label: 'End period'
+    @AnalyticsDetails.query.variableSequence : 120
+    p_EndDate : abap.dats
+as select from ZC_MM_INV_GDSMV
+{
+//KEY FIGURES
+//--Stock Quantity/Value at start of period
+    @EndUserText.label: 'Stock Qty start per.'
+    case
+      when PostingDate < :p_StartDate then MatlStkChangeQtyInBaseUnit
+      else                                0
+    end as MatlStkQtyStart,                      //Stock Quantity at start of period
+
+    @AnalyticsDetails.query.decimals: 0
+    @EndUserText.label: 'Stock Val.start per.'
+    case
+      when PostingDate < :p_StartDate then MatlStkChangeVal
+      else                                0
+    end as MatlStkValStart,                      //Stock Value at start of period
+
+//--Quantity/Value Received/Issued within period
+    @DefaultAggregation: #FORMULA
+    @AnalyticsDetails.query.formula: '$projection.GoodsReceiptQtyEnd - $projection.GoodsReceiptQtyStart'
+    @EndUserText.label: 'Qty Rec.in per.'
+    0 as GoodsReceiptQtyInPer,                   //Quantity Received within period
+
+    @DefaultAggregation: #FORMULA
+    @AnalyticsDetails.query.formula: '$projection.GoodsIssueQtyEnd - $projection.GoodsIssueQtyStart'
+    @EndUserText.label: 'Qty Iss.in per.'
+    0 as GoodsIssueQtyInPer,                     //Quantity Issued within period
+
+    @AnalyticsDetails.query.decimals: 0
+    @DefaultAggregation: #FORMULA
+    @AnalyticsDetails.query.formula: '$projection.GoodsReceiptValEnd - $projection.GoodsReceiptValStart'
+    @EndUserText.label: 'Val.Rec.in per.'
+    0 as GoodsReceiptValInPer,                   //Value Received within period
+
+    @AnalyticsDetails.query.decimals: 0
+    @DefaultAggregation: #FORMULA
+    @AnalyticsDetails.query.formula: '$projection.GoodsIssueValEnd - $projection.GoodsIssueValStart'
+    @EndUserText.label: 'Val.Iss.in per.'
+    0 as GoodsIssueValInPer,                     //Value Issued within period
+
+//--Stock Quantity/Value at end of period
+    @EndUserText.label: 'Stock Qty end per.'
+    case
+      when PostingDate <= :p_EndDate then MatlStkChangeQtyInBaseUnit
+      else                                0
+    end as MatlStgQtyEnd,                        //Stock Quantity at end of period
+
+    @AnalyticsDetails.query.decimals: 0
+    @EndUserText.label: 'Stock Val.end per.'
+    case
+      when PostingDate <= :p_EndDate then MatlStkChangeVal
+      else                                0
+    end as MatlStkValEnd,                        //Stock Value at end of period
+
+//--INTERMEDIATE RESULTS
+//--Quantity/Value Received/Issued at start of period
+    @AnalyticsDetails.query.hidden: true
+    @EndUserText.label: 'Qty Rec.start per.'
+    case
+      when PostingDate < :p_StartDate then GoodsReceiptQtyInBaseUnit
+      else                                  0
+    end as GoodsReceiptQtyStart,                 //Quantity Received at start of period
+
+    @AnalyticsDetails.query.hidden: true
+    @EndUserText.label: 'Qty Iss.start per.'
+    case
+      when PostingDate < :p_StartDate then GoodsIssueQtyInBaseUnit
+      else                                  0
+    end as GoodsIssueQtyStart,                   //Quantity Issued at start of period
+
+    @AnalyticsDetails.query.decimals: 0
+    @AnalyticsDetails.query.hidden: true
+    @EndUserText.label: 'Val.Rec.start per.'
+    case
+      when PostingDate < :p_StartDate then GoodsReceiptVal
+      else                                  0
+    end as GoodsReceiptValStart,                 //Value Received at start of period
+
+    @AnalyticsDetails.query.decimals: 0
+    @AnalyticsDetails.query.hidden: true
+    @EndUserText.label: 'Val.Iss.start per.'
+    case
+      when PostingDate < :p_StartDate  then GoodsIssueVal
+      else                                   0
+    end as GoodsIssueValStart,                   //Value Issued at start of period
+
+//--Quantity/Value Received/Issued at end of period
+    @AnalyticsDetails.query.hidden: true
+    @EndUserText.label: 'Qty Rec.end per.'
+    case
+      when PostingDate <= :p_EndDate then GoodsReceiptQtyInBaseUnit
+      else                                0
+    end as GoodsReceiptQtyEnd,                   //Quantity Received at end of period
+
+    @AnalyticsDetails.query.hidden: true
+    @EndUserText.label: 'Qty Iss.end per.'
+    case
+      when PostingDate <= :p_EndDate then GoodsIssueQtyInBaseUnit
+      else                                0
+    end as GoodsIssueQtyEnd,                     //Quantity Issued at end of period
+
+    @AnalyticsDetails.query.decimals: 0
+    @AnalyticsDetails.query.hidden: true
+    @EndUserText.label: 'Val.Rec.end per.'
+    case
+      when PostingDate <= :p_EndDate then GoodsReceiptVal
+      else                                0
+    end as GoodsReceiptValEnd,                   //Value Received at end of period
+
+    @AnalyticsDetails.query.decimals: 0
+    @AnalyticsDetails.query.hidden: true
+    @EndUserText.label: 'Val.Iss.end per.'
+    case
+      when PostingDate <= :p_EndDate  then GoodsIssueVal
+      else                                 0
+    end as GoodsIssueValEnd,                     //Value Issued at end of period
+
+//CHARACTERISTICS IN ROWS
+    @Consumption.filter: {selectionType: #SINGLE, multipleSelections: true, mandatory: false}
+    @AnalyticsDetails.query.variableSequence : 10
+    @AnalyticsDetails.query.axis: #ROWS
+    Material,                                    //Material Number (matdoc.matnr)
+    @Consumption.filter: {selectionType: #SINGLE, multipleSelections: true, mandatory: false}
+    @AnalyticsDetails.query.variableSequence : 20
+    @AnalyticsDetails.query.axis: #ROWS
+    Plant,                                       //Plant (matdoc.werks)
+
+//FREE CHARACTERISTICS
+    @Consumption.filter: {selectionType: #SINGLE, multipleSelections: true, mandatory: false}
+    @AnalyticsDetails.query.variableSequence : 30
+    StorageLocation,                             //Storage location (matdoc.lgort)
+    @Consumption.filter: {selectionType: #SINGLE, multipleSelections: true, mandatory: false}
+    @AnalyticsDetails.query.variableSequence : 40
+    MaterialGroup,                               //Material Group (mara.matkl)
+    @Consumption.filter: {selectionType: #SINGLE, multipleSelections: true, mandatory: false}
+    @AnalyticsDetails.query.variableSequence : 50
+    MaterialType,                                //Material Type (mara.mtart)
+    @Consumption.filter: {selectionType: #SINGLE, multipleSelections: true, mandatory: false}
+    @AnalyticsDetails.query.variableSequence : 70
+    InventorySpecialStockType,                   //Special Stock Indicator (matdoc.sobkz)
+    @Consumption.filter: {selectionType: #SINGLE, multipleSelections: true, mandatory: false}
+    @AnalyticsDetails.query.variableSequence : 80
+    InventoryStockType,                          //Stock Type of Goods Movement (Stock Identifier) (matdoc.lbbsa_sid)
+    Batch,                                       //Batch Number (matdoc.charg)
+    StockOwner,                                  //Additional Supplier for Special Stock (matdoc.disub_owner)
+    CompanyCode,                                 //Company Code (matdoc.bukrs)
+    InventorySpecialStockValnType,               //Valuation of Special Stock (matdoc.kzbws)
+    CompanyCodeCurrency,                         //Currency Key (matdoc.waers)
+    MaterialBaseUnit,                            //Base Unit of Measure (matdoc.meins)
+    IsReversalMovementType,                      //Reversal movement type (matdoc.reversal_movement)
+    GoodsMovementType,                           //Movement type (inventory management) (matdoc.bwart)
+    GoodsMovementReasonCode,                     //Reason for Movement (matdoc.grund)
+    InventoryValuationType,                      //Valuation Type (matdoc.bwtar)
+    PostingDate,                                 //Posting Date in the Document (matdoc.budat)
+  
+    MaterialDocumentYear,                        //Material Document Year (matdoc.mjahr)
+    MaterialDocument,                            //Number of Material Document (matdoc.mblnr)
+    MaterialDocumentItem,                        //Item in Material Document (matdoc.zeile)
+    
+//-------------------------------------------------------------------------------------------------
+//------From here on standard SAP code
+//-------------------------------------------------------------------------------------------------
+  
+  // Stock Transfers
+  // IssuingOrReceivingPlant and IssuingOrReceivingStorageLoc are not part because of access restrictions
+  // the analyzing user would require access permissions for both plants to see the one record
+  IssgOrRcvgMaterial,
+  IssgOrRcvgBatch,
+  IssgOrRcvgSpclStockInd,
+  IssuingOrReceivingStockType,
+  
+  // Cancellation information
+  GoodsMovementIsCancelled,
+  
+  // Periods & Times
+  DocumentDate,
+/*  @Consumption: {
+    filter:     {selectionType:     #INTERVAL},
+    derivation: { 
+        lookupEntity: 'C_SglGregorianCalDateFunction', 
+        resultElement: 'DateFunctionStartDate', binding: [ 
+            { targetParameter: 'P_DateFunction', type: #CONSTANT, value : 'PREVIOUSYEARTODATE' },
+            { targetParameter : 'P_Language' , type : #SYSTEM_FIELD, value : '#SYSTEM_LANGUAGE'  } ],
+        resultElementHigh: 'DateFunctionEndDate' } 
+  } */
+  FiscalYearVariant,
+  FiscalYear,
+  FiscalYearPeriod,
+  YearDay,
+  YearWeek,
+  YearMonth,
+  YearQuarter,
+  CalendarQuarter,
+  CalendarMonth,
+  CalendarWeek,
+  CalendarDay,
+  WeekDay,      
+  
+  // Reference Documents - must not refer to transaction dimension views (target dimension DLC would not be considered!)
+  SalesOrder,
+  SalesOrderItem,
+  SalesOrderScheduleLine,
+  PurchaseOrder,
+  PurchaseOrderItem,
+  DeliveryDocument,
+  DeliveryDocumentItem,
+  WBSElementInternalID,
+      ManufacturingOrder,
+      ManufacturingOrderItem,
+      
+  // Master Data fields out of the Reference Documents
+  PurchasingGroup,
+  PurchasingOrganization,
+  SalesOrganization,
+  DistributionChannel,
+  OrganizationDivision,
+  SalesGroup,
+  
+  // Other
+  Supplier,
+  Customer,
+  
+  //Accounting data
+  AccountAssignmentCategory,
+  CostObject,
+  CostCenter,
+  ControllingArea,
+  ProfitabilitySegment,
+  ProfitCenter,  
+  GLAccount,
+  FunctionalArea,
+  
+  // Classifications
+  StockChangeCategory,
+  IsConsumptionMovement,
+  IsCrossPlantTransfer,
+  IsStorageLocChangeByTransf,
+  IsMaterialChangeByTransf,
+  IsBatchChangeByTransf,
+  IsSpclStkTypeChangeByTransf,
+  IsStockTypeChangeByTransf
+
+    
+} where IsEffectiveGoodsMovement = 'X'                                                

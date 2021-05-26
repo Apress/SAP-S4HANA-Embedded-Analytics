@@ -1,0 +1,34 @@
+/* Freek Keijzer, myBrand, 21.10.2020
+Texts for field "Reference procedure" -> acdoca/acdocp.awtyp, cooi.rftyp
+Source table:
+TTYPT – “Object Type Names for Accounting”
+--------------------------------------------------------
+Change-log:
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'FI: Object Types for Accounting texts'
+@AbapCatalog.sqlViewName: 'ZTFIAWTYP'
+@ObjectModel.representativeKey: 'Awtyp'
+
+@ObjectModel.dataCategory: #TEXT
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@VDM.viewType: #BASIC
+@ClientHandling.algorithm: #SESSION_VARIABLE
+@Metadata.ignorePropagatedAnnotations: true
+@ObjectModel.usageType: {
+  dataClass: #CUSTOMIZING,
+  serviceQuality: #A,
+  sizeCategory: #S
+}
+
+define view ZT_FI_AWTYP as select from ttypt
+association [0..1] to I_Language as _Language on $projection.Language = _Language.Language
+{
+    @ObjectModel.foreignKey.association: '_Language'
+    @Semantics.language
+key spras            as Language,
+key awtyp            as Awtyp,
+    @Semantics.text
+    otext            as AwtypName,
+    _Language
+}

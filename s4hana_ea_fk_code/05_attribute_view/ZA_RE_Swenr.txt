@@ -1,0 +1,65 @@
+/* Freek Keijzer, myBrand, 24.01.2021
+Attribute view for Business Entity
+Business requirement: user-story 56789
+
+Layered structure of CDS-views:
+  ZA_RE_Swenr      - "Business Entity attributes"
+  |- vibdbe        - "Business Entity"
+  |- I_CompanyCode - Std view attributes CoCode
+  |  |- t001       - "Company Codes"
+  |- ZA_RE_StdOrt  - "Region of Business Entity attributes"
+  |  |- tiv35      - "Regional locations"
+  |- vibpobjrel    - "Business Partner-Object Relationship"
+  |- v_username    - "View for Reading User Name"
+--------------------------------------------------------
+Change-log:
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'RE: Business Entity attributes'
+@AbapCatalog.sqlViewName: 'ZARESWENR'
+@ObjectModel.representativeKey: 'REBusinessEntity' 
+
+@VDM.viewType: #BASIC
+@Analytics.dataCategory: #DIMENSION
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZA_RE_Swenr as select from vibdbe
+  left outer join      v_username                    on v_username.bname         = vibdbe.responsible
+  association[1..1] to I_CompanyCode as _CompanyCode on _CompanyCode.CompanyCode = $projection.CompanyCode
+  association[0..1] to ZA_RE_StdOrt  as _RE_StdOrt   on $projection.sstdort      = _RE_StdOrt.sstdort
+  association[0..*] to vibpobjrel    as _RE_Partner  on _RE_Partner.intreno      = $projection.REKey    and
+                                                        _RE_Partner.appl         = '0051'               and //= Business Entity
+                                                        _RE_Partner.validfrom   <= $session.system_date and
+                                                        _RE_Partner.validto     >= $session.system_date
+{
+    @ObjectModel.foreignKey.association: '_CompanyCode'
+key vibdbe.bukrs as CompanyCode,                 //Company Code (vibdbe.bukrs)
+    @ObjectModel.text.element: 'xwetext'
+key vibdbe.swenr as REBusinessEntity,            //Business Entity (vibdbe.swenr)
+    @Consumption.hidden: true
+    vibdbe.intreno as REKey,                     //RE Key (vibdbe.intreno)
+    @Consumption.hidden: true
+    vibdbe.objnr as StatusObject,                //Object Number (vibdbe.objnr)
+    vibdbe.imkey as RealEstateObject,            //Real Estate Key (vibdbe.imkey)
+    vibdbe.rerf as CreatedByUser,                //Entered By (vibdbe.rerf)
+    @EndUserText.label: 'Resp.Prs.SAP-id'
+    vibdbe.responsible,                          //Person Responsible, SAP-user (vibdbe.responsible)
+    @Semantics.text: true
+    vibdbe.xwetext,                              //Business Entity Name (vibdbe.xwetext)
+    @ObjectModel.foreignKey.association: '_RE_StdOrt'
+    vibdbe.sstdort,                              //Regional location (vibdbe.sstdort)
+    vibdbe.sverkehr,                             //Transport Connections (vibdbe.sverkehr)
+    vibdbe.slagewe,                              //Location (vibdbe.slagewe)
+    vibdbe.usgfunction,                          //Function (vibdbe.usgfunction)
+    @EndUserText.label: 'Station Manager'
+    _RE_Partner[1:role = 'ZR0014'].partner as StationManager, //Business Partner (vibpobjrel.partner) for Role 'ZR0014'
+    @EndUserText.label: 'Resp.Prs.Name'
+    v_username.name_text as ResponsibleName,     //Person Responsible, name (v_username.name_text <- vibdbe.responsible)
+    
+//--Associations to be passed on to a higher level
+    _CompanyCode,
+    _RE_StdOrt,
+    _RE_Partner
+}

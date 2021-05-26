@@ -1,0 +1,30 @@
+@EndUserText.label: 'CA: Time Recording'
+@AbapCatalog.sqlViewName : 'ZQCATIMESHEETREC'
+
+@VDM.viewType: #CONSUMPTION
+@Analytics.query: true
+@OData.publish: true
+
+define view ZQ_CA_TimeSheetRecord as select from ZC_CA_TimeSheetRecord
+{
+//--Key figures
+    @EndUserText.label: 'Hours'
+    RecordedQuantity,
+
+//--Characteristics initially in columns
+    @AnalyticsDetails.query.axis:#COLUMNS
+    @Consumption.filter :{ selectionType: #SINGLE, multipleSelections: true, mandatory: false }
+    @EndUserText.label: 'Month'
+    YearMonth,
+
+//--Characteristics initially in rows
+    @AnalyticsDetails.query.display: #KEY_TEXT
+    @AnalyticsDetails.query.axis:#ROWS
+    SenderCostCenter,
+    
+//--Free characteristics
+    ControllingArea,
+    PersonFullName,
+    PersonWorkAgreement
+}
+

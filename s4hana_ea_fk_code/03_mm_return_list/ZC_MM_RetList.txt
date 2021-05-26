@@ -1,0 +1,117 @@
+/* Freek Keijzer, myBrand, 17.01.2021
+Cube-view for Return List.
+Business requirement: user-story 34567
+Main source tables:
+RESB - "Reservation/dependent requirements"
+LIPS - "SD document: Delivery: Item data"
+T320 - "Assignment IM Storage Location to WM Warehouse Number"
+
+Layered structure of CDS-views:
+ZC_MM_RetList                  - Cube-view
+|- ZP_MM_RetListUn             - Union key figures Reservations + Deliveries
+|  |- ZP_MM_RetListRESB        - Transformed view key figures Reservations
+|  |  |- ZB_MM_RetListRESB     - Basic view key figures Reservations
+|  |  |  |- resb               - Source table Reservations
+|  |  |  |- lips               - Source table Deliveries
+|  |  |- ZP_MM_LIPSResAg       - Preparation for aggregation on Reservation Item
+|  |  |  |- ZB_MM_RetListRESB  
+|  |  |     |- ...             
+|  |  |- t320                  - Table to determine Warehouse EWM/IM
+|  |- ZB_MM_RetListLIPS        - Basic view key figures Deliveries
+|     |- lips
+|- I_Material                  - SAP std view attributes Material
+|  |- mara, ...
+|- I_Plant                     - SAP std view attributes Plant
+|  |- t001w, ...
+|- I_StorageLocation           - SAP std view attributes Storage Location
+|  |- t001l, ...
+|- I_MaintenanceOrder          - SAP std view attributes Maintenance Order
+|  |- afih, ...
+|- I_Movement_TypeText         - SAP std view texts Movement Type
+   |- t156ht
+--------------------------------------------------------
+Change-log:
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'MM: Return List (cube)'
+@AbapCatalog.sqlViewName: 'ZCMMRETLIST'
+
+@VDM.viewType: #COMPOSITE
+@Analytics.dataCategory: #CUBE
+@AccessControl.authorizationCheck: #CHECK
+@AbapCatalog.compiler.compareFilter: true
+@DataAging.noAgingRestriction: true
+@Search.searchable: false
+
+define view ZC_MM_RetList as select from ZP_MM_RetListUn as _Ret
+  association[0..1] to I_Material          as _Material         on $projection.Material         = _Material.Material
+  association[0..1] to I_Plant             as _Plant            on $projection.Plant            = _Plant.Plant
+  association[0..1] to I_StorageLocation   as _StorageLocation  on $projection.Plant            = _StorageLocation.Plant and
+                                                                   $projection.StorageLocation  = _StorageLocation.StorageLocation
+  association[0..1] to I_MaintenanceOrder  as _MaintenanceOrder on $projection.MaintenanceOrder = _MaintenanceOrder.MaintenanceOrder
+  association[0..*] to I_Movement_TypeText as _MovementTypeText on $projection.MovementType     = _MovementTypeText.MovementType
+{
+//--Key fields, currencies, units
+    @Semantics.quantity.unitOfMeasure: 'meins'
+    @DefaultAggregation: #SUM
+    @EndUserText.label: 'Quantity'
+    _Ret.bdmng,                                  //"Quantity" = resb.bdmng or lips.lgmng
+    
+    @Semantics.quantity.unitOfMeasure: 'meins'
+    @DefaultAggregation: #SUM
+    @EndUserText.label: 'Returned'
+    _Ret.enmng,                                  //"Returned" = resb.enmng or lips.lgmng
+    
+    @Semantics.quantity.unitOfMeasure: 'meins'
+    @DefaultAggregation: #SUM
+    @EndUserText.label: 'Received'
+    _Ret.QuantRec,                               //"Received" = resb.enmng or lips.lgmng with conditions
+    
+    @EndUserText.label: 'Unit'
+    _Ret.meins,                                  //Base Unit of Measure (resb/lips.meins)
+    
+    @DefaultAggregation: #SUM
+    @EndUserText.label: 'Numb.of Reser.'
+    _Ret.CounterRes,                             //Number of Reservation Items
+
+    @DefaultAggregation: #SUM
+    @EndUserText.label: 'Numb.of Deliv.'
+    _Ret.CounterDel,                             //Number of Delivery Items
+
+//--Characteristics
+    @EndUserText.label: 'Source (RESB, LIPS)'
+    _Ret.Source,                                 //Source = 'RESB', 'LIPS'
+    @EndUserText.label: 'Res.nr'
+    _Ret.rsnum,                                  //Reservation Number (resb/lips.rsnum)
+    @EndUserText.label: 'Res.pos'
+    _Ret.rspos,                                  //Reservation Item (resb/lips.rspos)
+    @ObjectModel.foreignKey.association: '_Plant'
+    _Ret.werks as Plant,                         //Plant (resb/lips.werks)
+    @ObjectModel.foreignKey.association: '_StorageLocation'
+    _Ret.lgort as StorageLocation,               //Storage Location (resb/lips.lgort)
+    @ObjectModel.foreignKey.association: '_MaintenanceOrder'
+    _Ret.aufnr as MaintenanceOrder,              //Order Number (resb/lips.aufnr)
+    _Ret.xloek,                                  //Item is deleted (resb.xloek)
+    @ObjectModel.text.association: '_MovementTypeText'
+    _Ret.bwart as MovementType,                  //Movement type inventory management (resb/lips.bwart)
+    _Ret.kzear,                                  //Final issue for this reservation (resb.kzear)
+    @ObjectModel.foreignKey.association: '_Material'
+    _Ret.matnr as Material,                      //Material Number (resb/lips.matnr)
+    @EndUserText.label: 'Del.nr'
+    _Ret.vbeln as EWMInboundDelivery,            //Delivery (lips.vbeln)
+    @EndUserText.label: 'Del.pos'
+    _Ret.vbelp,                                  //Delivery Item (lips.posnr)
+    _Ret.bwtar,                                  //Valuation Type (lips.bwtar)
+    _Ret.StorLoc_EWM_IM,                         //"Warehouse EWM/IM?" = 'EWM' or 'IM'
+    _Ret.StorLocCompl,                           //"Warehouse completed?", see logic in union-view
+    
+//--Characteristics via associations
+    _Material.MaterialGroup,                     //Material Group (mara.matkl)
+    
+//--Associations to be passed on to a higher level
+    _Plant,
+    _StorageLocation,
+    _Material,
+    _MaintenanceOrder,
+    _MovementTypeText
+}

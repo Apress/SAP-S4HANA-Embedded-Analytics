@@ -1,0 +1,52 @@
+@ClientHandling.algorithm: #SESSION_VARIABLE 
+@ObjectModel.representativeKey: 'CalendarDate'
+@ObjectModel.usageType.dataClass: #MIXED
+@ObjectModel.usageType.serviceQuality: #C
+@ObjectModel.usageType.sizeCategory: #XL 
+@AbapCatalog.sqlViewName: 'ICALENDARDATE'
+@EndUserText.label: 'Date'
+@Analytics : {dataCategory: #DIMENSION, dataExtraction.enabled : true}
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@VDM.viewType: #BASIC
+
+define view I_CalendarDate as select from scal_tt_date
+// inner join I_SAPClient as _SAPClient on sapclient is not null
+association [1..1] to I_CalendarMonth as _CalendarMonth
+  on _CalendarMonth.CalendarMonth = scal_tt_date.calendarmonth
+association [1..1] to I_CalendarQuarter as _CalendarQuarter
+  on _CalendarQuarter.CalendarQuarter = scal_tt_date.calendarquarter
+association [1..1] to I_CalendarYear as _CalendarYear
+on _CalendarYear.CalendarYear = scal_tt_date.calendaryear
+association [1..1] to I_WeekDay as _WeekDay
+  on _WeekDay.WeekDay = scal_tt_date.weekday
+association [1..1] to I_YearMonth as _YearMonth
+  on _YearMonth.YearMonth = scal_tt_date.yearmonth
+
+{   
+    key scal_tt_date.calendardate as CalendarDate,
+    @ObjectModel.foreignKey.association: '_CalendarYear'
+    scal_tt_date.calendaryear as CalendarYear,
+    @ObjectModel.foreignKey.association: '_CalendarQuarter'
+    scal_tt_date.calendarquarter as CalendarQuarter,
+    @ObjectModel.foreignKey.association: '_CalendarMonth'
+    scal_tt_date.calendarmonth as CalendarMonth,
+    scal_tt_date.calendarweek as CalendarWeek,
+    scal_tt_date.calendarday as CalendarDay,
+     @ObjectModel.foreignKey.association: '_YearMonth'
+    scal_tt_date.yearmonth as YearMonth,
+    scal_tt_date.yearquarter as YearQuarter,
+    scal_tt_date.yearweek as YearWeek,
+    @ObjectModel.foreignKey.association: '_WeekDay'
+    scal_tt_date.weekday as WeekDay,
+
+    scal_tt_date.firstdayofweekdate as FirstDayOfWeekDate,
+    scal_tt_date.firstdayofmonthdate as FirstDayOfMonthDate,
+    scal_tt_date.calendardayofyear as CalendarDayOfYear,
+    scal_tt_date.yearday as YearDay,
+    _WeekDay,
+    _CalendarMonth,
+    _CalendarQuarter,
+    _CalendarYear,
+    _YearMonth
+    
+}  

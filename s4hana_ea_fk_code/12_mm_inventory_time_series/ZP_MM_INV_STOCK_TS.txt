@@ -1,0 +1,103 @@
+/* Freek Keijzer, myBrand, 16.09.2020
+Loosely based on standard SAP view P_MaterialStockTimeSeries.
+
+Key figures:
+Final result are four key figures:
+MatlWrhsStkQtyInMatlBaseUnit - Stock Level Quantity at end of period
+MatlStkChangeQtyInBaseUnit   - Stock Change Quantity in period
+MatlStkChangeQtyRolYearInBU  - Stock Change Quantity in Rolling Year
+CountMatDocPos               - No Material Document Items contributing to Stock Change in period
+NDays                        - No Days within period
+NDaysRolYear                 - No Days within Rolling Year till end of period (365 or 366)
+
+Only the first key figure was available in the standard SAP view.
+The others are results of the custom enhancements.
+--------------------------------------------------------
+Change-log: 
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'MM: Stock Time Series'
+@AbapCatalog.sqlViewName: 'ZPMMINVSTOCKTS'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZP_MM_INV_STOCK_TS
+  with parameters
+    P_StartDate  : vdm_v_start_date,
+    P_EndDate    : vdm_v_end_date,
+    P_PeriodType : nsdm_period_type
+  as select from ZP_P_MaterialStockTimeSeries1(P_StartDate:  :P_StartDate,
+                                               P_EndDate:    :P_EndDate,
+                                               P_PeriodType: :P_PeriodType )
+//--Association to determine Company Code Currency
+  association [1..1] to I_CompanyCode as _CompanyCode on  $projection.CompanyCode = _CompanyCode.CompanyCode
+{
+      // Period
+key PeriodType,
+key StartDate,
+key EndDate,
+key YearPeriod,
+      // Stock Identifier
+key Material,
+key Plant,
+key StorageLocation,
+key Batch,
+key Supplier,
+key SDDocument,
+key SDDocumentItem,
+key WBSElementInternalID,
+key Customer,
+key InventoryStockType,
+key InventorySpecialStockType,
+key CostEstimate,
+      // Units
+key MaterialBaseUnit,
+      // Stock Groups
+key CompanyCode,
+key FiscalYearVariant,
+key StockChangeCategory,                         //Type of Stock Change = 'GR','GI'
+
+    @Semantics.currencyCode: true
+    cast(max(_CompanyCode.Currency) as nsdm_comp_code_currency preserving type)  as CompanyCodeCurrency,
+
+    StartDateRolYear,                            //Start Date of "Rolling Year" till end of time period, e.g. 25.09.2020 -> 26.09.2019
+
+//--Quantities
+    @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+    cast(sum(MatlWrhsStkQtyInMatlBaseUnit) as nsdm_stock_qty preserving type) as MatlWrhsStkQtyInMatlBaseUnit,
+    @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+    cast(sum(MatlStkChangeQtyInBaseUnit)   as nsdm_stock_qty preserving type) as MatlStkChangeQtyInBaseUnit,
+    @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+    cast(sum(MatlStkChangeQtyRolYearInBU)  as nsdm_stock_qty preserving type) as MatlStkChangeQtyRolYearInBU,
+    
+    sum(CountMatDocPos) as CountMatDocPos,
+    
+    (DATS_DAYS_BETWEEN(StartDate,       EndDate) + 1) as NDays,
+    (DATS_DAYS_BETWEEN(StartDateRolYear,EndDate) + 1) as NDaysRolYear
+}
+where
+  PeriodType = :P_PeriodType
+group by
+  PeriodType,
+  StartDate,
+  EndDate,
+  YearPeriod,
+  Material,
+  Plant,
+  StorageLocation,
+  Batch,
+  Supplier,
+  SDDocument,
+  SDDocumentItem,
+  WBSElementInternalID,
+  Customer,
+  InventoryStockType,
+  InventorySpecialStockType,
+  CostEstimate,
+  MaterialBaseUnit,
+  CompanyCode,
+  FiscalYearVariant,
+  StockChangeCategory,
+  StartDateRolYear

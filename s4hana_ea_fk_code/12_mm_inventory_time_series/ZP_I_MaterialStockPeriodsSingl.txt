@@ -1,0 +1,39 @@
+/* Freek Keijzer, myBrand, 17.09.2020
+Copy of standard SAP view I_MaterialStockPeriodsSingle.
+Only difference is selection from ZP_P_MaterialStockPeriods
+instead of from P_MaterialStockPeriods.
+View ZP_P_MaterialStockPeriods contains an enhancement.
+--------------------------------------------------------
+Wijzigingslog: 
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'MM: I_MaterialStockPeriodsSingle (copy)'
+@AbapCatalog.sqlViewName: 'ZIMATSTOCKPSINGL'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZP_I_MaterialStockPeriodsSingl
+  with parameters
+    P_StartDate  : vdm_v_start_date,
+    P_EndDate    : vdm_v_end_date,
+    P_PeriodType : nsdm_period_type
+  as select from ZP_P_MaterialStockPeriods(P_StartDate:  :P_StartDate,
+                                           P_EndDate:    :P_EndDate )
+{
+      // Periods for the required period type only
+  key PeriodType        as PeriodType,
+      @Semantics.fiscal.yearVariant: true
+  key FiscalYearVariant as FiscalYearVariant,
+      @Semantics.businessDate.from: true
+  key StartDate         as StartDate,
+      @Semantics.businessDate.to: true
+  key EndDate           as EndDate,
+      @Semantics.fiscal.period: true
+  key YearPeriod        as YearPeriod,
+  
+      dats_add_days(dats_add_months(EndDate,-12,'FAIL'),1,'FAIL') as StartDateRolYear   //Startdatum van een "Rolling Year" periode, 25.09.2020 -> 26.09.2019
+}
+where
+  PeriodType = :P_PeriodType     

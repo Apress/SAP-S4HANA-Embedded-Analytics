@@ -1,0 +1,30 @@
+/* Freek Keijzer, myBrand, 24.01.2021
+Multilingual text view for Employee Subgroup
+Business requirement: user-story 45678
+Source table:
+T503T - " Employee Subgroup Names"
+--------------------------------------------------------
+Change-log:
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'HR: Employee Subgroup text'
+@AbapCatalog.sqlViewName: 'ZTHRPERSK'
+@ObjectModel.representativeKey: 'Persk'
+
+@VDM.viewType: #BASIC
+@ObjectModel.dataCategory: #TEXT
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@ClientHandling.algorithm: #SESSION_VARIABLE
+@Metadata.ignorePropagatedAnnotations: true
+
+define view ZT_HR_Persk as select from t503t
+  association[0..1] to I_Language as _Language on $projection.Language = _Language.Language
+{
+    @ObjectModel.foreignKey.association: '_Language'
+    @Semantics.language
+key sprsl            as Language,
+key persk            as Persk,
+    @Semantics.text
+    ptext            as PerskName,
+    _Language
+}

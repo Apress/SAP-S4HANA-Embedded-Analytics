@@ -1,0 +1,38 @@
+/* Freek Keijzer, myBrand, 02.06.2020
+Basic data for User Status of Order.
+Source tables:
+AUFK  - " Order master data "
+JEST  - " Individual Object Status "
+T003O - " Order Types "
+TJ30T - " Texts for User Status"
+Data restricted to “Status Profile” (t003o.stsma) = 'Z0000004'.
+--------------------------------------------------------
+Change log:
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'LOG: Data for UserStatus Order'
+@AbapCatalog.sqlViewName: 'ZBLOGAUFKJEST'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZB_LOG_AUFK_JEST as select from aufk
+  inner join jest
+    on jest.objnr = aufk.objnr
+  inner join t003o
+    on t003o.auart = aufk.auart
+  inner join tj30t
+    on tj30t.stsma = t003o.stsma and
+       tj30t.estat = jest.stat   and
+       tj30t.spras = 'N'
+{
+    aufk.aufnr,                                  //Order Number (aufk.aufnr)
+    aufk.auart,                                  //Order Type (aufk.auart)
+    jest.stat,                                   //Object status (jest.stat/tj30t.estat)
+    jest.inact,                                  //Indicator: Status Is Inactive (jest.inact)
+    t003o.stsma,                                 //Status Profile (t003o/tj30t.stsma)
+    tj30t.txt04,                                 //Status CHAR-4 (tj30t.txt04)
+    tj30t.txt30                                  //Status CHAR-30 (tj30t.txt30)
+}
+where t003o.stsma = 'Z0000004'

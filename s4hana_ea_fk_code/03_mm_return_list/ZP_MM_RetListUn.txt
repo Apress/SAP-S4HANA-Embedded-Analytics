@@ -1,0 +1,90 @@
+/* Freek Keijzer, myBrand, 17.01.2021
+Union-view for integration key figures Reservations & Deliveries.
+Business requirement: user-story 34567.
+Includes:
+- Logic for key figure "Quantity Received?",
+- Logic for characteristic "Warehouse EWM/IM?",
+- Logic for characteristic "Warehouse Completed?".
+--------------------------------------------------------
+Change-log:
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'MM: Return List (union)'
+@AbapCatalog.sqlViewName: 'ZPMMRETLIST'
+
+@VDM.viewType: #COMPOSITE
+@Analytics.dataCategory: #FACT
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZP_MM_RetListUn as 
+select from ZP_MM_RetListRESB
+{
+    'RESB' as Source,                            //Source = 'RESB', 'LIPS'
+    rsnum,                                       //Reservation Number (resb.rsnum)
+    rspos,                                       //Reservation Item (resb.rspos)
+    werks,                                       //Plant (resb.werks)
+    lgort,                                       //Storage Location (resb.lgort)
+    aufnr,                                       //Order Number (resb.aufnr)
+    xloek,                                       //Item is deleted (resb.xloek)
+    bwart,                                       //Movement type inventory management (resb.bwart)
+    kzear,                                       //Final issue for this reservation (resb.kzear)
+    matnr,                                       //Material Number (resb.matnr)
+    meins,                                       //Base Unit of Measure (resb.meins)
+    bdmng,                                       //Requirement Quantity (resb.bdmng)
+    enmng,                                       //Quantity withdrawn (resb.enmng)
+    case
+      when werks_t320 != '' and spe_gen_elikz = 'X' then enmng
+      else                                               0.0
+    end as QuantRec,                             //"Received" = "Quantity withdrawn" (resb.enmng) with conditions
+    vbeln,                                       //Delivery (lips.vbeln)
+    vbelp,                                       //Delivery Item (lips.posnr)
+    bwtar,                                       //Valuation Type (lips.bwtar)
+    @EndUserText.label: 'Warehouse EWM/IM?'
+    case
+      when werks_t320 != '' then 'EWM'
+      else                       'IM'
+    end as StorLoc_EWM_IM,                       //"Warehouse EWM/IM?" = 'EWM' or 'IM' based on table T320
+    @EndUserText.label: 'Warehouse Completed?'
+    case
+      when werks_t320 = '' and bdmng  = enmng then 'X'
+      when werks_t320 = '' and bdmng != enmng then ''
+      else                                         spe_gen_elikz
+    end as StorLocCompl,                         //"Warehouse completed?", based on table T320 and values resb.bdmng/enmng
+    CounterRes,                                  //Number of Reservation Items
+    CounterDel                                   //Number of Delivery Items 
+}
+union all
+select from ZB_MM_RetListLIPS
+{
+    'LIPS' as Source,                            //Source = 'RESB', 'LIPS'
+    rsnum,                                       //Reservation Number (lips.rsnum)
+    rspos,                                       //Reservation Item (lips.rspos)
+    werks,                                       //Plant (lips.werks)
+    lgort,                                       //Storage Location (lips.lgort)
+    aufnr,                                       //Order Number (lips.aufnr)
+    '' as xloek,                                 //Item is deleted
+    bwart,                                       //Movement type inventory management (lips.bwart)
+    'X' as kzear,                                //Final issue for this reservation
+    matnr,                                       //Material Number (lips.matnr)
+    meins,                                       //Base Unit of Measure (lips.meins)
+    lgmng as bdmng,                              //Actual quantity delivered (lips.lgmng)
+    lgmng as enmng,                              //Actual quantity delivered (lips.lgmng)
+    case
+      when wbsta = 'C' then lgmng
+      else                  0.0
+    end as QuantRec,                             //"Received" = "Actual quantity delivered" (lips.lgmng) with conditions
+    vbeln,                                       //Delivery (lips.vbeln)
+    vbelp,                                       //Delivery Item (lips.posnr)
+    bwtar,                                       //Valuation Type (lips.bwtar)
+    @EndUserText.label: 'Warehouse EWM/IM?'
+    'EWM' as StorLoc_EWM_IM,                     //"Warehouse EWM/IM?" = 'EWM' or 'IM'
+    @EndUserText.label: 'Warehouse Completed?'
+    case
+      when wbsta = 'C' then 'X'
+      else                  ''
+    end as StorLocCompl,                         //"Warehouse Completed?" based on value "Goods Movement Status" (lips.wbsta)
+    0 as CounterRes,                             //Number of Reservation Items
+    Counter as CounterDel                        //Number of Delivery Items
+}

@@ -1,0 +1,25 @@
+/* Freek Keijzer, myBrand, 24.01.2021
+Text view for Regional Location
+Business requirement: user-story 56789
+Source table:
+TIV35 - "Regional locations"
+--------------------------------------------------------
+Change-log:
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'RE: Region of Business Entity attributes'
+@AbapCatalog.sqlViewName: 'ZARESTDORT'
+@ObjectModel.representativeKey: 'sstdort' 
+
+@VDM.viewType: #BASIC
+@Analytics.dataCategory: #DIMENSION
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZA_RE_StdOrt as select from tiv35
+{
+    @ObjectModel.text.element: 'xstdort'
+key sstdort,                                     //Regional location (tiv35.sstdort)
+    xstdort                                      //Regional location, description (tiv35.xstdort)
+}

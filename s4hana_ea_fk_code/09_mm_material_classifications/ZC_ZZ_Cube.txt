@@ -1,0 +1,14 @@
+// Freek Keijzer, 24.01.2021, view for demo-purposes
+@EndUserText.label: 'ZC_ZZ_Cube'
+@AbapCatalog.sqlViewName: 'ZXZZCUBE'
+@VDM.viewType: #COMPOSITE
+@Analytics.dataCategory: #CUBE
+define view ZC_ZZ_Cube as select from mara
+  association[0..1] to ZA_MM_Mat as _Mat on $projection.matnr = _Mat.Material
+{
+    @ObjectModel.foreignKey.association: '_Mat'
+key mara.matnr, 
+    @DefaultAggregation: #SUM
+    1 as counter,
+    _Mat
+}

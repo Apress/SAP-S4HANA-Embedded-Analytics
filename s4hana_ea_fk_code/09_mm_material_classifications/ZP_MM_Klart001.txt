@@ -1,0 +1,21 @@
+/* Freek Keijzer, myBrand, 04.07.2020
+Classification Characteristics of Material.
+Selection of specific values of "Characteristic Name" (cabn.atnam).
+--------------------------------------------------------
+Change-log: 
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'MM: Material Classif.Charact.Sel.'
+@AbapCatalog.sqlViewName: 'ZPMMKLART001'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZP_MM_Klart001 as select from ZB_MM_Klart001
+{
+    matnr,                             //Material (mara.matnr)/ Key of Object to be Classified (inob.objek)
+    case when atnam = 'NORM'    then atwrt else '' end as Cl_Norm,    //Characteristic Value (ausp.atwrt)
+    case when atnam = 'NS_NORM' then atwrt else '' end as Cl_NS_Norm, //Characteristic Value (ausp.atwrt)
+    case when atnam = 'TYPE'    then atwrt else '' end as Cl_Type     //Characteristic Value (ausp.atwrt)
+}

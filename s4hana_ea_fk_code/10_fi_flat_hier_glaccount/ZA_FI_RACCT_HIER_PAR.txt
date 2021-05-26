@@ -1,0 +1,51 @@
+/* Freek Keijzer, myBrand, 19.11.2019
+Attribute-view for flattened hierarchy of GL Account.
+Source tables:
+SKA1      : "G/L Account Master (Chart of Accounts)"
+FACL_011ZC: "Fin. Statement Structure: Assignment FS Items - G/L Account"
+FAGL_011PC: "Fin. Statement Structure: Items in Fin. Statement Structure"
+
+Different hierarchies exist for different values of field 
+"Financial Statement Version" (fagl_011zc/pc.versn).
+
+Layered structure of CDS-views:
+  ZA_FI_RACCT_HIER_PAR
+  |- ZP_FI_RACCT_HIER_PAR
+     |- ZB_FI_RACCT_HIER_PAR
+        |- ska1
+        |- fagl_011zc
+        |- fagl_011pc
+--------------------------------------------------------
+Change-log: 
+--------------------------------------------------------
+JIRA-story 12345, 27-05-2020, Danny Linders
+Parametrized version of ZB_FI_RACCT_HIER
+with fagl_011zc/pc.versn = parameter p_versn in order 
+to be able to use 1 view for different hierarchies.
+--------------------------------------------------------*/
+@EndUserText.label: 'FI: G/L Account Hierarchy'
+@AbapCatalog.sqlViewName: 'ZAFIRACCTHIERPAR'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZA_FI_RACCT_HIER_PAR 
+  with parameters
+    p_versn : versn_011
+as select distinct from ZP_FI_RACCT_HIER_PAR(p_versn: :p_versn)
+{
+key ktopl,         //Chart of Accounts (ska1.ktopl)
+key saknr,         //G/L Account Number (ska1.saknr)
+    stufe,         //Financial Statement Item Hierarchy Level (fagl_011pc.stufe)
+    ergsl_lev00,   //Financial Statement Item (fagl_011zc.ergsl) level 0
+    ergsl_lev01,   //Financial Statement Item (fagl_011zc.ergsl) level 1
+    ergsl_lev02,   //Financial Statement Item (fagl_011zc.ergsl) level 2
+    ergsl_lev03,   //Financial Statement Item (fagl_011zc.ergsl) level 3
+    ergsl_lev04,   //Financial Statement Item (fagl_011zc.ergsl) level 4
+    ergsl_lev05,   //Financial Statement Item (fagl_011zc.ergsl) level 5
+    ergsl_lev06,   //Financial Statement Item (fagl_011zc.ergsl) level 6
+    ergsl_lev07,   //Financial Statement Item (fagl_011zc/pc.ergsl) level 7
+    ergsl_lev08,   //Financial Statement Item (fagl_011zc/pc.ergsl) level 8
+    ergsl_lev09    //Financial Statement Item (fagl_011zc/pc.ergsl) level 9
+}

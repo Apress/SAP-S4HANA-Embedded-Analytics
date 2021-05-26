@@ -1,0 +1,125 @@
+/* Freek Keijzer, myBrand, 03.09.2019
+Dataset for flattened hierarchy of GL Account.
+Source tables:
+SKA1      : "G/L Account Master (Chart of Accounts)"
+FACL_011ZC: "Fin. Statement Structure: Assignment FS Items - G/L Account"
+FAGL_011PC: "Fin. Statement Structure: Items in Fin. Statement Structure"
+
+Starting point fort the views are Accounts in table SKA1.
+Table FACL_011ZC gives relation between Account and first node.
+Via table FAGL_011PC, the hierarchy can be “climbed upwards”.
+Field fagl_011pc.stufe gives the level of the Account in the hierarchy.
+In this view, 9 levels are “climbed upwards”.
+This is sufficient for a value of stufe of max. 10.
+
+Different hierarchies exist for different values of field 
+"Financial Statement Version" (fagl_011zc/pc.versn).
+--------------------------------------------------------
+Change-log: 
+--------------------------------------------------------
+JIRA-story 12345, 27-05-2020, Danny Linders
+Parametrized version of ZB_FI_RACCT_HIER
+with fagl_011zc/pc.versn = parameter p_versn in order 
+to be able to use 1 view for different hierarchies.
+--------------------------------------------------------*/
+@EndUserText.label: 'FI: Data for G/L Account Hierarchy'
+@AbapCatalog.sqlViewName: 'ZBFIRACCTHIERPAR'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZB_FI_RACCT_HIER_PAR 
+  with parameters
+    p_versn : versn_011
+as select from ska1
+//--- Position with description
+  left outer join fagl_011zc as _leaf
+    on _leaf.versn = :p_versn and
+       _leaf.ktopl = 'NS00' and
+       _leaf.vonkt <= ska1.saknr and
+       _leaf.biskt >= ska1.saknr
+//--- 1 level up
+  left outer join fagl_011pc as _node
+    on _node.versn = :p_versn and
+       _node.ergsl = _leaf.ergsl
+  left outer join fagl_011pc as _node2
+    on _node2.versn = :p_versn and
+       _node2.id    = _node.parent
+//--- 2 levels up
+  left outer join fagl_011pc as _node_up1
+    on _node_up1.versn = :p_versn and
+       _node_up1.ergsl = _node2.ergsl
+  left outer join fagl_011pc as _node2_up1
+    on _node2_up1.versn = :p_versn and
+       _node2_up1.id    = _node_up1.parent
+//--- 3 levels up
+  left outer join fagl_011pc as _node_up2
+    on _node_up2.versn = :p_versn and
+       _node_up2.ergsl = _node2_up1.ergsl
+  left outer join fagl_011pc as _node2_up2
+    on _node2_up2.versn = :p_versn and
+       _node2_up2.id    = _node_up2.parent
+//--- 4 levels up
+  left outer join fagl_011pc as _node_up3
+    on _node_up3.versn = :p_versn and
+       _node_up3.ergsl = _node2_up2.ergsl
+  left outer join fagl_011pc as _node2_up3
+    on _node2_up3.versn = :p_versn and
+       _node2_up3.id    = _node_up3.parent
+//--- 5 levels up
+  left outer join fagl_011pc as _node_up4
+    on _node_up4.versn = :p_versn and
+       _node_up4.ergsl = _node2_up3.ergsl
+  left outer join fagl_011pc as _node2_up4
+    on _node2_up4.versn = :p_versn and
+       _node2_up4.id    = _node_up4.parent
+//--- 6 levels up
+  left outer join fagl_011pc as _node_up5
+    on _node_up5.versn = :p_versn and
+       _node_up5.ergsl = _node2_up4.ergsl
+  left outer join fagl_011pc as _node2_up5
+    on _node2_up5.versn = :p_versn and
+       _node2_up5.id    = _node_up5.parent
+//--- 7 levels up
+  left outer join fagl_011pc as _node_up6
+    on _node_up6.versn = :p_versn and
+       _node_up6.ergsl = _node2_up5.ergsl
+  left outer join fagl_011pc as _node2_up6
+    on _node2_up6.versn = :p_versn and
+       _node2_up6.id    = _node_up6.parent
+//--- 8 levels up
+  left outer join fagl_011pc as _node_up7
+    on _node_up7.versn = :p_versn and
+       _node_up7.ergsl = _node2_up6.ergsl
+  left outer join fagl_011pc as _node2_up7
+    on _node2_up7.versn = :p_versn and
+       _node2_up7.id    = _node_up7.parent
+//--- 9 levels up
+  left outer join fagl_011pc as _node_up8
+    on _node_up8.versn = :p_versn and
+       _node_up8.ergsl = _node2_up7.ergsl
+  left outer join fagl_011pc as _node2_up8
+    on _node2_up8.versn = :p_versn and
+       _node2_up8.id    = _node_up8.parent
+       
+{
+//ska1 
+key ska1.ktopl,                        //Chart of Accounts (ska1.ktopl)
+key ska1.saknr,                        //G/L Account Number (ska1.saknr)
+
+//fagl_011zc, fagl_011pc
+    _leaf.ergsl,                       //Financial Statement Item (fagl_011zc.ergsl)
+    _node.stufe,                       //Financial Statement Item Hierarchy Level (fagl_011pc.stufe)
+    _node2.ergsl as ergsl_up1,         //Financial Statement Item (fagl_011zc.ergsl) 1 level up
+    _node2_up1.ergsl as ergsl_up2,     //Financial Statement Item (fagl_011zc.ergsl) 2 levels up
+    _node2_up2.ergsl as ergsl_up3,     //Financial Statement Item (fagl_011zc.ergsl) 3 levels up
+    _node2_up3.ergsl as ergsl_up4,     //Financial Statement Item (fagl_011zc.ergsl) 4 levels up
+    _node2_up4.ergsl as ergsl_up5,     //Financial Statement Item (fagl_011zc.ergsl) 5 levels up
+    _node2_up5.ergsl as ergsl_up6,     //Financial Statement Item (fagl_011zc.ergsl) 6 levels up
+    _node2_up6.ergsl as ergsl_up7,     //Financial Statement Item (fagl_011zc.ergsl) 7 levels up
+    _node2_up7.ergsl as ergsl_up8,     //Financial Statement Item (fagl_011zc.ergsl) 8 levels up
+    _node2_up8.ergsl as ergsl_up9      //Financial Statement Item (fagl_011zc.ergsl) 9 levels up
+    
+}
+where ska1.ktopl = 'NS00'  //--Only 1 Controlling Area

@@ -1,0 +1,25 @@
+/* Freek Keijzer, myBrand, 17.01.2021
+Preparation for data aggregation of Delivery Items to Reservation Items.
+There can be multiple Delivery Items for 1 Reservation Item.
+In this view, 1 of these Delivery Items is selected for display
+and the number of Delivery Items is counted.
+--------------------------------------------------------
+Change-log:
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'MM: Data LIPS aggr.to Reservation'
+@AbapCatalog.sqlViewName: 'ZPMMLIPSRESBAG'
+
+@VDM.viewType: #COMPOSITE
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZP_MM_LIPSResAg as select from ZB_MM_RetListRESB
+{
+    rsnum,                                       //Reservation Number (resb.rsnum)
+    rspos,                                       //Reservation Item (resb.rspos)
+    max(VbelnPos) as VbelnPos,                   //Delivery Number+Item
+    sum(CounterDel)  as CounterDel               //Number of Delivery Items in Reservations
+}
+group by rsnum, rspos  //--Aggregation on Reservation Item

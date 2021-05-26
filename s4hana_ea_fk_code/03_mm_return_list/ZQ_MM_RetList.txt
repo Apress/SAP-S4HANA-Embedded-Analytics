@@ -1,0 +1,64 @@
+/* Freek Keijzer, myBrand, 17.01.2021
+Query-view for Return List.
+Business requirement: user-story 34567
+--------------------------------------------------------
+Change-log:
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'MM: Return List'
+@AbapCatalog.sqlViewName: 'ZQMMRETLIST'
+
+@VDM.viewType: #CONSUMPTION
+@Analytics.query: true
+@OData.publish: true
+
+define view ZQ_MM_RetList as select from ZC_MM_RetList
+{
+//--Key figures
+    bdmng,                                       //"Quantity" = resb.bdmng or lips.lgmng
+    enmng,                                       //"Returned" = resb.enmng or lips.lgmng
+    @DefaultAggregation: #FORMULA
+    @AnalyticsDetails.query.formula: '$projection.bdmng - $projection.enmng'
+    @EndUserText.label: 'Remaining'
+    0 as QuantityRemaining,                      //"Remaining" = "Quantity" - "Returned"
+    QuantRec,                                    //"Received" = resb.enmng or lips.lgmng with conditions
+    @AnalyticsDetails.query.hidden: true
+    CounterRes,                                  //Number of Reservation Items
+    CounterDel,                                  //Number of Delivery Items
+    
+//--Characteristics initially in rows
+    @Consumption.filter: {selectionType: #SINGLE, multipleSelections: true, mandatory: false}
+    @AnalyticsDetails.query.variableSequence : 40
+    @AnalyticsDetails.query.axis: #ROWS
+    @AnalyticsDetails.query.display: #KEY_TEXT
+    @AnalyticsDetails.query.totals: #SHOW
+    Material,                                    //Material Number (resb/lips.matnr)
+
+//--Free characteristics
+    Source,                                      //Source = 'RESB', 'LIPS'
+    rsnum,                                       //Reservation Number (resb/lips.rsnum)
+    rspos,                                       //Reserveringspositie (resb/lips.rspos)
+    @Consumption.filter: {selectionType: #SINGLE, multipleSelections: true, mandatory: false}
+    @AnalyticsDetails.query.variableSequence : 10
+    @AnalyticsDetails.query.display: #KEY_TEXT
+    Plant,                                       //Plant (resb/lips.werks)
+    @Consumption.filter: {selectionType: #SINGLE, multipleSelections: true, mandatory: false}
+    @AnalyticsDetails.query.variableSequence : 20
+    @AnalyticsDetails.query.display: #KEY_TEXT
+    StorageLocation,                             //Storage Location (resb/lips.lgort)
+    @Consumption.filter: {selectionType: #SINGLE, multipleSelections: true, mandatory: false}
+    @AnalyticsDetails.query.variableSequence : 30
+    @AnalyticsDetails.query.display: #KEY_TEXT
+    MaintenanceOrder,                            //Order Number (resb/lips.aufnr)
+    xloek,                                       //Item is deleted (resb.xloek)
+    MovementType,                                //Movement type inventory management (resb/lips.bwart)
+    kzear,                                       //Final issue for this reservation (resb.kzear)
+    EWMInboundDelivery,                          //Delivery (lips.vbeln)
+    vbelp,                                       //Delivery Item (lips.posnr)
+    bwtar,                                       //Valuation Type (lips.bwtar)
+    StorLoc_EWM_IM,                              //"Warehouse EWM/IM?" = 'EWM' or 'IM'
+    @Consumption.filter: {selectionType: #SINGLE, multipleSelections: true, mandatory: false, defaultValue: ''}
+    @AnalyticsDetails.query.variableSequence : 50
+    StorLocCompl,                                //"Warehouse completed?", see logic in union-view
+    MaterialGroup                                //Material Group (mara.matkl)
+}

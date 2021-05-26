@@ -1,0 +1,258 @@
+/* Freek Keijzer, myBrand, 20.03.2020
+Query-view for financial analysis Actuals+Plan+Commitments.
+
+Available key figures (in initial view only first three are shown):
+1. Amount Actual
+2. Amount Plan
+3. Amount Commitment
+4. Amount Commitment Plan
+5. Quantity Actual
+6. Quantity Plan
+7. Quantity Commitment
+8. Quantity Commitment Plan
+9. No Records
+
+Special functions for characteristics:
+- Parameter (mandatory, single value) on "Plan Category"
+- Filter on "Ledger" with default value '0L'
+- Filter on "Indicator: Account is a profit & loss account?" with
+  default value 'Yes', which suppresses balance sheet accounts
+- Filter on Creation Date to facilitate "making the data less real-time",
+  as one can fill in '01.01.1900' - [yesterday]
+--------------------------------------------------------
+Change-log: 
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'FI: Fin.Analysis Actuals+Plan+Commitm.'
+@AbapCatalog.sqlViewName: 'ZQFIACDOCAPCOOI'
+
+@VDM.viewType: #CONSUMPTION
+@Analytics.query: true
+@Analytics.settings.maxProcessingEffort: #HIGH
+@OData.publish: true
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+@AbapCatalog.dbHints: [{dbSystem: #HDB, hint: 'USE_OLAP_PLAN'}]
+
+define view ZQ_FI_ACDOCAPCOOI
+with parameters
+    @EndUserText.label: 'Plan Category'
+    @AnalyticsDetails.query.variableSequence : 100
+    p_Version : category
+as select from ZC_FI_ACDOCAPCOOI
+{
+//Key figures, currencies, units
+//--Amount Actual/Plan
+    @AnalyticsDetails.query.decimals: 0
+    @EndUserText.label: 'Amount Act'
+    case
+      when Source = 'ACDOCA' then ksl
+      else 0 
+    end as amount_a,                             //Amount Actual in Global Currency (acdoca.ksl)
+    @AnalyticsDetails.query.decimals: 0
+    @EndUserText.label: 'Amount Pln'
+    case
+      when (Source = 'ACDOCP'  and category = :p_Version) then ksl
+      else 0
+    end as amount_p,                             //Amount Plan in Global Currency (acdocp.ksl)
+    rkcur,                                       //Global Currency (acdoca/acdocp.rkcur)
+
+//--Amount Commitment Actual/Plan
+    @AnalyticsDetails.query.decimals: 0
+    wkgbtr,                                      //Total Value (cooi.wkgbtr)
+    @AnalyticsDetails.query.hidden: true
+    @AnalyticsDetails.query.decimals: 0
+    orgwtk,                                      //Planned Value (cooi.orgwtk)
+    tka01_cur,                                   //Currency Key (tka01.waers)
+
+//--Quantity Actual/Plan
+    @AnalyticsDetails.query.hidden: true
+    @EndUserText.label: 'Qty Act'
+    case
+      when Source = 'ACDOCA' then quant_ap 
+      else 0 
+    end as quant_a,                              //Quantity Actual (acdoca.msl)
+    @AnalyticsDetails.query.hidden: true
+    @EndUserText.label: 'Qty Pln'
+    case
+      when Source = 'ACDOCP' then quant_ap
+      else 0
+    end as quant_p,                              //Quantity Plan (acdocp.vmsl)
+    quant_ap_unit,                               //UoM for Quantity (acdoca.runit/acdocp.rvunit -> quant_ap_unit)
+
+//--Quantity Commitment Actual/Plan
+    @AnalyticsDetails.query.hidden: true
+    megbtr,                                      //Total Quantity (cooi.megbtr)
+    @AnalyticsDetails.query.hidden: true
+    gesmng,                                      //Planned Quantity (cooi.gesmng)
+    meinh_cooi,                                  //Unit of Measure (cooi.meinh)
+
+//--Generic counter
+    @AnalyticsDetails.query.hidden: true
+    Counter,                                     //Generic counter for records in table/view
+
+//Characteristics initially in rows
+    @AnalyticsDetails.query.axis: #ROWS
+    @AnalyticsDetails.query.display: #KEY_TEXT
+    @AnalyticsDetails.query.totals: #SHOW
+    GLAccount,                                   //G/L Account (acdoca/acdocp.racct/cooi.sakto)
+
+//Free characteristics
+    @Consumption.filter: {selectionType: #SINGLE, multipleSelections: true, mandatory: false}
+    @AnalyticsDetails.query.variableSequence : 10
+    Source,                                      //Source = 'ACDOCA', 'ACDOCP' or 'COOI'
+
+//--Fields from table Actuals ACDOCA
+    @Consumption.filter: {selectionType: #SINGLE, multipleSelections: true, mandatory: false, defaultValue: '0L'}
+    @AnalyticsDetails.query.variableSequence : 20
+    Ledger,                                      //Ledger in General Ledger Accounting (acdoca/acdocp.rldnr)
+    @Consumption.filter: {selectionType: #SINGLE, multipleSelections: true, mandatory: false}
+    @AnalyticsDetails.query.variableSequence : 30
+    @AnalyticsDetails.query.display: #KEY_TEXT
+    CompanyCode,                                 //Company Code (acdoca/acdocp.rbukrs, cooi.bukrs)
+    @Consumption.filter: {selectionType: #INTERVAL, multipleSelections: true, mandatory: false}
+    @AnalyticsDetails.query.variableSequence : 110
+    FiscalYear,                                  //Fiscal Year (acdoca/acdocp/cooi.gjahr)
+    AccountingDocument,                          //Accounting Document (acdoca.belnr)
+    AccountingDocumentItem,                      //Accounting Document Item (acdoca.docln)
+    @AnalyticsDetails.query.display: #KEY_TEXT
+    rmvct,                                       //Transaction type (acdoca/acdocp.rmvct)
+    awtyp,                                       //Reference procedure (acdoca/acdocp.awtyp, cooi.rftyp)
+    @AnalyticsDetails.query.display: #KEY_TEXT
+    CostCenter,                                  //Cost Center (acdoca/acdocp.rcntr, ekkn.kostl)
+    @Consumption.filter: {selectionType: #SINGLE, multipleSelections: true, mandatory: false}
+    @AnalyticsDetails.query.variableSequence : 40
+    @AnalyticsDetails.query.display: #KEY_TEXT
+    ProfitCenter,                                //Profit Center (acdoca/acdocp/ekkn.prctr)
+    rbusa,                                       //Business Area (acdoca/acdocp.rbusa)
+    @AnalyticsDetails.query.display: #KEY_TEXT
+    ControllingArea,                             //Controlling Area (acdoca/acdocp/cooi.kokrs)
+    @AnalyticsDetails.query.display: #KEY_TEXT
+    rassc,                                       //Company ID of trading partner (acdoca/acdocp.rassc, cooi.vbund)
+    @AnalyticsDetails.query.display: #TEXT
+    drcrk,                                       //Debit/Credit Indicator (acdoca.drcrk, acdocp.co_belkz/cooi.beknz -> drcrk)
+    @Consumption.filter: {selectionType: #INTERVAL, multipleSelections: true, mandatory: false}
+    @AnalyticsDetails.query.variableSequence : 120
+    FiscalPeriod,                                //Posting period (acdoca/acdocp.poper, cooi.perio) as CHAR-3
+    FiscalYearVariant,                           //Fiscal Year Variant (acdoca/acdocp.periv)
+    FiscalyearPeriod,                            //Period/year (acdoca/acdocp.fiscyearper, cooi.gjahr+perio)
+    PostingDate,                                 //Posting Date (acdoca/acdocp.budat), Expected Debit Date (cooi.budat)
+    bldat,                                       //Document Date (acdoca/cooi.bldat)
+    @Consumption.filter: {selectionType: #SINGLE, multipleSelections: true, mandatory: false}
+    @AnalyticsDetails.query.variableSequence : 70
+    @AnalyticsDetails.query.display: #KEY_TEXT
+    AccountingDocumentType,                      //Document type (acdoca.blart)
+    zuonr,                                       //Assignment number (acdoca.zuonr)
+    bschl,                                       //Posting Key (acdoca.bschl)
+    usnam,                                       //User Name (acdoca/acdocp.usnam)
+    timestamp,                                   //UTC-timestamp (acdoca/cooi.timestamp)
+    @AnalyticsDetails.query.display: #TEXT
+    ChartOfAccounts,                             //Chart of Accounts (acdoca/acdocp.ktopl)
+    PurchasingDocument,                          //Purchasing Document (acdoca.ebeln, cooi.refbn = ebeln)
+    ebelp,                                       //Purchasing Document Item (acdoca.ebelp, cooi.rfpos = ebelp)
+    sgtxt,                                       //Item Text (acdoca/acdocp/cooi.sgtxt)
+    matnr,                                       //Material (acdoca/acdocp/cooi.matnr)
+    werks,                                       //Plant (acdoca/acdocp.werks)
+    @AnalyticsDetails.query.display: #KEY_TEXT
+    lifnr,                                       //Vendor (acdoca/cooi.lifnr)
+    @AnalyticsDetails.query.display: #KEY_TEXT
+    kunnr,                                       //Customer (acdoca/acdocp.kunnr)
+    @AnalyticsDetails.query.display: #TEXT
+    koart,                                       //Account Type (acdoca.koart)
+    mwskz,                                       //Tax on sales/purchases code (acdoca.mwskz)
+    hbkid,                                       //Short key for a house bank (acdoca.hbkid)
+    hktid,                                       //ID for account details (acdoca.hktid)
+    xopvw,                                       //Indicator: Open Item Management? (acdoca.xopvw)
+    augdt,                                       //Clearing Date (acdoca.augdt)
+    augbl,                                       //Document Number of the Clearing Document (acdoca.augbl)
+    auggj,                                       //Fiscal Year of Clearing Document (acdoca.auggj)
+    anln1,                                       //Main Asset Number (acdoca.anln1)
+    anln2,                                       //Asset Subnumber (acdoca.anln2)
+    anlgr,                                       //Group Asset (acdoca.anlgr)
+    anlgr2,                                      //Subnumber of Group Asset (acdoca.anlgr2)
+    @AnalyticsDetails.query.display: #KEY_TEXT
+    anlkl,                                       //Asset Class (acdoca.anlkl)
+    bwtar,                                       //Valuation Type (acdoca.bwtar)
+    bwkey,                                       //Valuation area (acdoca.bwkey)
+    objnr,                                       //Object number (acdoca/acdocp/cooi.objnr)
+    accas,                                       //Account Assignment (acdoca.accas)
+    accasty,                                     //Object Type (acdoca/acdocp.accasty)
+    lstar,                                       //Activity Type (acdoca/acdocp.lstar)
+    @AnalyticsDetails.query.display: #KEY_TEXT
+    InternalOrder,                               //Order Number (acdoca/acdocp/ekkn.aufnr)
+    autyp,                                       //Order category (acdoca.autyp)
+    WBSElementInternalID,                        //WBS-element, NUMC-8 (acdoca/acdocp/ekkn.ps_psp_pnr)
+    @AnalyticsDetails.query.display: #KEY_TEXT
+    nplnr,                                       //Network Number (acdoca.nplnr)
+    nplnr_vorgn,                                 //Network Activity (acdoca.nplnr_vorgn)
+    paccas,                                      //Partner Account Assignment (acdoca.paccas)
+    paccasty,                                    //Partner Object Type (acdoca/acdocp.paccasty)
+    matkl,                                       //Product Sold Group (acdoca/acdocp/cooi.matkl)
+     
+//--Fields only in table Plan ACDOCP
+    reqtsn,                                      //Request Transaction Sequence Number (acdocp.reqtsn)
+    datapakid,                                   //Data packet number (acdocp.datapakid)
+    record,                                      //Data record number (acdocp.record)
+    category,                                    //Category (acdocp.category)
+
+//--Fields from view Commitments ZB_PUR_COOI
+    loekz_cooi,                                  //Deletion indicator in purchasing document (cooi.loekz)
+
+//--Creation Date determined via different methods
+    @Consumption.filter: {selectionType: #INTERVAL, multipleSelections: false, mandatory: false }
+    @AnalyticsDetails.query.variableSequence : 140
+    zcpudt,                                      //Creation Date (acdoca.timestamp/acdocp.reqtsn/cooi.bldat)
+
+//--Time characteristics from view I_Calendardate based on Posting Date (acdoca/acdocp.budat) and Expected Debit Date (cooi.budat)    
+    YearWeek,                                    //Year Week (scal_tt_date.yearweek)
+    YearMonth,                                   //Year Month (scal_tt_date.yearmonth)
+    YearQuarter,                                 //Year Quarter (scal_tt_date.yearquarter)
+    CalendarYear,                                //Calendar Year (scal_tt_date.calendaryear)
+    @AnalyticsDetails.query.display: #KEY_TEXT
+    CalendarMonth,                               //Calendar Month (scal_tt_date.calendarmonth)
+
+//--Fields from view I_WBSElementBasicData
+    @AnalyticsDetails.query.display: #KEY_TEXT
+    WBSElement,                                  //WBS-element, CHAR-24 (prps.posid)
+    @AnalyticsDetails.query.display: #KEY_TEXT
+    Project,                                     //Project, CHAR-24 (proj.pspid)
+    @AnalyticsDetails.query.display: #KEY_TEXT
+    WBSElement_CompanyCode,                      //Company Code of WBS-element (prps.pbukr)
+    @AnalyticsDetails.query.display: #TEXT
+    ProjectType,                                 //Project Type (prps.prart)
+
+//--Fields from view ZB_PS_AFVC_CAUFV
+    NplnrVorgnText,                              //Network Activity description (afvc.ltxa1)
+    @AnalyticsDetails.query.display: #KEY_TEXT
+    WBSElementNwa,                               //WBS-element of Network Activity (prps.posid <- afvc.projn)
+
+//--Fields from view ZA_FI_RACCT_HIER_PAR, hierarchy 'NS00'
+    ergsl_stufe,                                 //Financial Statement Item Hierarchy Level (fagl_011pc.stufe)
+    @AnalyticsDetails.query.display: #TEXT
+    ergsl_lev01,                                 //Financial Statement Item (fagl_011zc.ergsl) level 1   
+    @AnalyticsDetails.query.display: #TEXT
+    ergsl_lev02,                                 //Financial Statement Item (fagl_011zc.ergsl) level 2   
+    @AnalyticsDetails.query.display: #TEXT
+    ergsl_lev03,                                 //Financial Statement Item (fagl_011zc.ergsl) level 3   
+    @AnalyticsDetails.query.display: #TEXT
+    ergsl_lev04,                                 //Financial Statement Item (fagl_011zc.ergsl) level 4   
+    @AnalyticsDetails.query.display: #TEXT
+    ergsl_lev05,                                 //Financial Statement Item (fagl_011zc.ergsl) level 5   
+    
+//--Fields from view I_GLAccountInChartOfAccounts
+    @AnalyticsDetails.query.display: #TEXT
+    GLAccountGroup,                              //G/L Account Group (ska1.ktoks)
+    @AnalyticsDetails.query.display: #TEXT
+    GLAccountType,                               //Type of a General Ledger Account (ska1.glaccount_type)
+    @Consumption.filter: {selectionType: #SINGLE, multipleSelections: true, mandatory: false, defaultValue: 'X'}
+    @AnalyticsDetails.query.variableSequence : 80
+    IsProfitLossAccount,                         //(ska1.xbilk)-> Indicator: Account is a profit & loss account?
+
+//--Field from view I_PurchasingDocument
+    @AnalyticsDetails.query.display: #TEXT
+    PurchasingDocumentCategory,                  //Purchasing Document Category (ekko.bstyp)
+    @AnalyticsDetails.query.display: #TEXT
+    PurchasingDocumentType                       //Purchasing Document Type (ekko.bsart)
+}

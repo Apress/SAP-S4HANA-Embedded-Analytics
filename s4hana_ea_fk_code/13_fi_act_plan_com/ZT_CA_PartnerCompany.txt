@@ -1,0 +1,39 @@
+/* Freek Keijzer, myBrand, 16.10.2019
+Custom text-view for "Partner Company" (acdoca.rassc).
+SAP-delivered view I_Partnercompany was not working properly.
+Source table:
+T880 - "Global Company Data (for KONS Ledger)"
+--------------------------------------------------------
+Change-log: 
+--------------------------------------------------------
+JIRA-5840, 12.02.2020, Freek Keijzer
+In first version, field t880.langu was used for Language.
+However, field does not mean language of text, but language
+of Company.
+Therefore now fixed value for Language.
+--------------------------------------------------------*/
+@EndUserText.label: 'CA: Partner Company text'
+@AbapCatalog.sqlViewName: 'ZTCAPARTCOMP'
+
+@ObjectModel.dataCategory: #TEXT
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@VDM.viewType: #BASIC
+@ClientHandling.algorithm: #SESSION_VARIABLE
+@Metadata.ignorePropagatedAnnotations: true
+@ObjectModel.usageType: {
+  dataClass: #CUSTOMIZING,
+  serviceQuality: #A,
+  sizeCategory: #S
+}
+
+define view ZT_CA_PartnerCompany as select from t880
+association [0..1] to I_Language as _Language on $projection.Language = _Language.Language
+{
+    @ObjectModel.foreignKey.association: '_Language'
+    @Semantics.language
+key 'E'              as Language,
+key rcomp            as PartnerCompany,
+    @Semantics.text
+    name1            as PartnerCompanyName,
+    _Language
+}

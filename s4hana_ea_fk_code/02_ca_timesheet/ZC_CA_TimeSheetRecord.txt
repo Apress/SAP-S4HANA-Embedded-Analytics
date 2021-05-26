@@ -1,0 +1,73 @@
+/* Freek Keijzer, myBrand, 17.01.2021
+Cube-view for time recording data.
+Business requirement: user-story 23456
+
+Layered structure of CDS-views:
+  ZC_CA_TimeSheetRecord
+  |- I_TimeSheetRecord
+  |  |- catsdb
+  |  |- E_TimeSheetRecord
+  |  |  |- catsdb
+  |- I_CostCenter
+  |  |- csks
+  |  |- ...
+  |- I_CalendarDate
+  |  |- scal_tt_date
+  |  |- I_YearMonth
+  |  |  |- scal_tt_month
+  |  |  |- scal_tt_year
+  |- I_WorkforcePerson
+     |- I_BusinessPartner
+     |  |- but000
+     |  |- ...
+     |- I_HrRelation
+        |- hrp1001
+        |- ...
+--------------------------------------------------------
+Change-log:
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'CA: Time Recording (cube)'
+@AbapCatalog.sqlViewName: 'ZCCATIMESHEETREC'
+
+@VDM.viewType: #COMPOSITE
+@Analytics.dataCategory: #CUBE
+@AccessControl.authorizationCheck: #CHECK
+@AbapCatalog.compiler.compareFilter: true
+@DataAging.noAgingRestriction: true
+@Search.searchable: false
+
+define view ZC_CA_TimeSheetRecord as select from I_TimeSheetRecord
+  association[0..*] to I_CostCenter as _I_CostCenter_1
+    on _I_CostCenter_1.ControllingArea = I_TimeSheetRecord.ControllingArea and
+       _I_CostCenter_1.CostCenter      = I_TimeSheetRecord.SenderCostCenter
+  association[0..1] to I_CalendarDate as _I_CalendarDate_2
+    on _I_CalendarDate_2.CalendarDate = I_TimeSheetRecord.TimeSheetDate
+  association[0..*] to I_WorkforcePerson as _I_WorkforcePerson_3
+    on _I_WorkforcePerson_3.PersonExternalID = I_TimeSheetRecord.PersonWorkAgreement
+{
+//--Characteristics, key fields
+key I_TimeSheetRecord.TimeSheetRecord,           //Counter for Records in Time Recording (catsdb.counter)
+
+//--Key figures, currencies, units
+    @Semantics.quantity.unitOfMeasure: 'UnitOfMeasure'
+    @Aggregation.default: #SUM
+    I_TimeSheetRecord.RecordedQuantity,          //Time Sheet: Number, Unit of Measure (catsdb.catsquantity)
+    @Semantics.unitOfMeasure: true
+    I_TimeSheetRecord.UnitOfMeasure,             //Unit of Measurement (catsdb.unit)
+
+//--Characteristics, non-key fields
+    I_TimeSheetRecord.PersonWorkAgreement,       //Personnel Number (catsdb.pernr)
+    I_TimeSheetRecord.TimeSheetDate,             //Date (catsdb.workdate)
+    @ObjectModel.foreignKey.association: '_I_CostCenter_1'
+    I_TimeSheetRecord.SenderCostCenter,          //Sender Cost Center (catsdb.skostl)
+    I_TimeSheetRecord.ControllingArea,           //Controlling Area (catsdb.kokrs)
+    
+//--Fields via associations
+    @Semantics.calendar.yearMonth: true
+    _I_CalendarDate_2.YearMonth,                 //Year Month (scal_tt_date.yearmonth <- catsdb.workdate)
+    _I_WorkforcePerson_3.PersonFullName,         //Full Name (but000.name1_text <- catsdb.pernr)
+    
+//--Associations to be passed on to the query
+    _I_CostCenter_1
+}

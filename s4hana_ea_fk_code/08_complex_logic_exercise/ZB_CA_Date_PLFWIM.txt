@@ -1,0 +1,29 @@
+/* Freek Keijzer, myBrand, 12.08.2020
+See comments with ZP_CA_Date_PLFWIM
+--------------------------------------------------------
+Change log: 
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'CA: Data for Date PerLtstVolWkInMnd'
+@AbapCatalog.sqlViewName: 'ZBCADATEPLFWIM'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZB_CA_Date_PLFWIM as select from I_CalendarDate
+{
+key CalendarDate,
+    YearWeek,
+    YearMonth,
+    _YearMonth.NumberOfDays as NumberOfDaysInMonth,
+    CalendarDay,
+    cast(_YearMonth.NumberOfDays as abap.int2) - cast(CalendarDay as abap.int2) as DaysLeftInMonth,
+    WeekDay,
+    7 - cast(WeekDay as abap.int2) as DaysLeftInWeek,
+    cast(_YearMonth.NumberOfDays as abap.int2) - cast(CalendarDay as abap.int2) - 7 + cast(WeekDay as abap.int2) as DaysLeftInMonthMinusWeek,
+    case
+      when CalendarMonth = '12' then cast(cast((cast(YearMonth as abap.int4) + 89) as abap.char(20)) as abap.numc(6))
+      else                           cast(cast((cast(YearMonth as abap.int4) +  1) as abap.char(20)) as abap.numc(6))
+    end as YearMonthUp1
+}

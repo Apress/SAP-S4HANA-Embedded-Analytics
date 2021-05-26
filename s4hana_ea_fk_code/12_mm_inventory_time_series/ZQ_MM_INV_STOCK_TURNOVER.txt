@@ -1,0 +1,174 @@
+/* Freek Keijzer, myBrand, 22.09.2020
+In selection screen a.o. "Start Date", "End Date" and "Period Type".
+For "Period Type" following options:
+- 'D' = 'Calendar Day'
+- 'F' = 'Fiscal Year Period'
+- 'M' = 'Calendar Month'
+- 'P' = 'Period LFWIM' (custom enhancement)
+- 'Q' = 'Calendar Quarter'
+- 'W' = 'Calendar Week'
+- 'Y' = 'Calendar Year'
+
+Query includes following key figures:
+- "Stock" = Stock Level Value at end of time period
+- "Issue" = Issued Value in "Rolling Year" till end of time period
+- "Days in RY"
+- "Turnover" = "Stock" / "Issue" expressed in weeks
+
+"Days in RY" is initially hidden, but can be shown.
+
+Dimension "Time Period" in columns.
+
+Explanation "Rolling Year" and "Turnover":
+For date 15.02.2020 the "Rolling Year" till that date goes from 16.02.2019 till 15.02.2020 = 365 days.
+For date 15.03.2020 the "Rolling Year" till that date goes from 16.03.2019 till 15.03.2020 = 366 days.
+Data example for “Turnover”:
+- Stock = 14
+- Issue in Rolling Year = 183
+- No Days in Rolling Year = 366
+- No days in week = 7
+- Turnover = 366 * 14 / ( 7 * 183 ) = 4,0 weeks
+
+Location dimensions, hierarchically from large to small:
+- "Plant" (matdoc.werks)
+- "Storage Location" (matdoc.lgort)
+- "Bin Location" (mard.lgpbe)  = custom enhancement
+
+"Plant" and "Material" are initially shown in rows, key + text.
+--------------------------------------------------------
+Change-log: 
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'MM: Stock – Turnover'
+@AbapCatalog.sqlViewName: 'ZQMMINVSTOCKTO'
+
+@VDM.viewType: #CONSUMPTION
+@Analytics.query: true
+@Analytics.settings.maxProcessingEffort: #HIGH
+@OData.publish: true
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZQ_MM_INV_STOCK_TURNOVER
+  with parameters
+    @Consumption.hidden: true
+    @Environment.systemField: #SYSTEM_LANGUAGE
+    P_Language   : sylangu,
+    P_StartDate  : vdm_v_start_date,
+    P_EndDate    : vdm_v_end_date,
+    P_PeriodType : nsdm_period_type
+
+  as select from ZC_MM_INV_STOCK_TS(P_StartDate:  :P_StartDate,
+                                           P_EndDate:    :P_EndDate,
+                                           P_PeriodType: :P_PeriodType)
+{
+//KEY FIGURES, UNITS, CURRENCIES
+//--Amounts using current price
+    @AnalyticsDetails.query.decimals: 0
+    @EndUserText.label: 'Stock'
+    StockValueInCCCrcy,
+
+    
+    @AnalyticsDetails.query.decimals: 0
+    @EndUserText.label: 'Issue'
+    GoodsIssueValRolYear,   
+    
+    CompanyCodeCurrency,
+
+    @AnalyticsDetails.query.hidden: true
+    NDaysRolYear,
+    
+    @DefaultAggregation: #FORMULA
+    @AnalyticsDetails.query.formula: '($projection.NDaysRolYear * $projection.StockValueInCCCrcy) / (7 * $projection.GoodsIssueValRolYear)'
+    @AnalyticsDetails.query.decimals: 1
+    @EndUserText.label: 'Turnover'
+    0 as Turnover,                          //Omzetsnelheid in weken
+    
+
+//CHARACTERISTICS IN COLUMNS
+    @AnalyticsDetails.query.axis: #COLUMNS
+    YearPeriod,
+
+//CHARACTERISTICS IN ROWS
+    @Consumption.filter: {selectionType: #SINGLE, multipleSelections: true, mandatory: false}
+    @AnalyticsDetails.query.variableSequence : 10
+    @AnalyticsDetails.query.axis: #ROWS
+    @ObjectModel.text.element: ['MaterialName']
+    Material,
+  
+    @Consumption.filter: {selectionType: #SINGLE, multipleSelections: true, mandatory: false}
+    @AnalyticsDetails.query.variableSequence : 20
+    @AnalyticsDetails.query.axis: #ROWS
+    @ObjectModel.text.element: ['PlantName']
+    Plant,
+
+//FREE CHARACTERISTICS
+//--Additional characteristics compared to SAP standard
+    StockChangeCategory,
+
+//----Material attributes as dimension
+    @Consumption.filter: {selectionType: #SINGLE, multipleSelections: true, mandatory: false}
+    @AnalyticsDetails.query.variableSequence : 40
+    MaterialGroup,
+    
+    @Consumption.filter: {selectionType: #SINGLE, multipleSelections: true, mandatory: false}
+    @AnalyticsDetails.query.variableSequence : 50
+    MaterialType,
+    
+//----Additional field from table MARD
+    StorageBin,                                  //Magazijnlocatie (mard.lgpbe)
+
+//----Additional fields for start of time period
+    StartDate,
+    StartDateRolYear,
+
+//--From SAP standard view
+  // Period
+    PeriodType,
+    EndDate,
+
+    @Consumption.filter: {selectionType: #SINGLE, multipleSelections: true, mandatory: false}
+    @AnalyticsDetails.query.variableSequence : 30
+    @ObjectModel.text.element: ['StorageLocationName']
+    StorageLocation,
+  
+    Batch,
+  
+    @ObjectModel.text.element: ['SupplierName']
+    Supplier,
+  
+    SDDocument,
+  
+    SDDocumentItem,
+  
+    WBSElementInternalID,
+  
+    @ObjectModel.text.element: ['CustomerName']
+    Customer,
+  
+    @Consumption.filter: {selectionType: #SINGLE, multipleSelections: true, mandatory: false}
+    @AnalyticsDetails.query.variableSequence : 70
+    @ObjectModel.text.element: ['InventoryStockTypeName']
+    InventoryStockType,
+  
+    @Consumption.filter: {selectionType: #SINGLE, multipleSelections: true, mandatory: false}
+    @AnalyticsDetails.query.variableSequence : 80
+    @ObjectModel.text.element: ['InventorySpecialStockTypeName']
+    InventorySpecialStockType,
+
+  // Stock Groups
+    CompanyCode,
+    @Semantics.fiscal.yearVariant: true
+    FiscalYearVariant,
+
+  // Names and descriptions
+    _Material._Text[1: Language=$parameters.P_Language].MaterialName,
+    _CompanyCode.CompanyCodeName,
+    _Plant.PlantName,
+    _StorageLocation.StorageLocationName,
+    _Supplier.SupplierName,
+    _Customer.CustomerName,
+    _InventoryStockType._Text[1: Language=$parameters.P_Language].InventoryStockTypeName,
+    _InventorySpecialStockType._Text[1: Language=$parameters.P_Language].InventorySpecialStockTypeName
+}                               

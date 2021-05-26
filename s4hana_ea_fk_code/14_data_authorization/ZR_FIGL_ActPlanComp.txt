@@ -1,0 +1,7 @@
+@EndUserText.label: 'Data-authorization on CoCode' 
+@MappingRole: true 
+define role ZR_FIGL_ActPlanComp
+{ 
+    grant select on ZC_FIGL_ActPlanComp
+      where (CompanyCode) = aspect pfcg_auth(f_ska1_buk, bukrs, actvt='03');     
+}

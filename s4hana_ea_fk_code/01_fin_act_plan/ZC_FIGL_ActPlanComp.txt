@@ -1,0 +1,74 @@
+/* Freek Keijzer, myBrand, 10.01.2021
+Cube-view for financial actual-plan comparison.
+Business requirement: user-story 12345
+
+Layered structure of CDS-views:
+  ZC_FIGL_ActPlanComp
+  |- I_ActualPlanJournalEntryItem
+     |- P_ActualPlanJrnlEntryItm (union)
+        |- I_GLAccountLineItem
+        |  |- P_Acdoca_Cube
+        |     |- P_ACDOCA_COM
+        |        |- acdoca
+        |        |- finsc_ledger_rep
+        |- I_FinancialPlanningEntryItem
+           |- P_ACDOCP_COM
+              |- acdocp
+--------------------------------------------------------
+Change-log:
+--------------------------------------------------------
+--------------------------------------------------------*/
+@AbapCatalog.sqlViewName: 'ZCFIGLACTPLANCMP'
+@EndUserText.label: 'FI-GL: Actual-Plan Comparison (cube)'
+
+@VDM.viewType: #COMPOSITE
+@Analytics.dataCategory: #CUBE
+@AccessControl.authorizationCheck: #CHECK
+@AbapCatalog.compiler.compareFilter: true
+@DataAging.noAgingRestriction: true
+@Search.searchable: false
+
+define view ZC_FIGL_ActPlanComp as select from I_ActualPlanJournalEntryItem
+{
+//--Characteristics, key fields
+key SourceLedger,                                //Source ledger (finsc_ledger_rep.rldnr_pers)
+key Ledger,                                      //Ledger in General Ledger Accounting (acdoca/p.rldnr)
+    @ObjectModel.foreignKey.association: '_CompanyCode'
+key CompanyCode,                                 //Company Code (acdoca/p.bukrs)
+    @Semantics.fiscal.year: true
+key FiscalYear,                                  //Fiscal Year (acdoca/p.gjahr)
+key AccountingDocument,
+key FinancialPlanningReqTransSqnc,               //Request Transaction Sequence Number (acdocp.reqtsn)
+key FinancialPlanningDataPacket,                 //Data packet number (acdocp.datapakid)
+key ActualPlanJournalEntryItem,                  //Data record number (acdocp.record)
+
+//--Key figures, currencies, units
+    @Semantics.amount.currencyCode: 'GlobalCurrency'
+    @Aggregation.default: #SUM
+    ActualAmountInGlobalCurrency,                //Amount in Global Currency (acdoca.ksl)
+    @Semantics.amount.currencyCode: 'GlobalCurrency'
+    @Aggregation.default: #SUM
+    PlanAmountInGlobalCurrency,                  //Amount in Global Currency (acdocp.ksl)
+    @Semantics.currencyCode: true
+    GlobalCurrency,                              //Global Currency (acdoca/p.rkcur)
+    
+//--Characteristics, non-key fields
+    ChartOfAccounts,                             //Chart of Accounts (acdoca/p.ktopl)
+    PlanningCategory,                            //Category (acdocp.category, 'ACT01' for acdoca)
+    @ObjectModel.foreignKey.association: '_ProfitCenter'
+    ProfitCenter,                                //Profit Center (acdoca/p.prctr)
+    @ObjectModel.foreignKey.association: '_GLAccountInCompanyCode'
+    GLAccount,                                   //Account Number (acdoca/p.racct)
+    ControllingArea,                             //Controlling Area (acdoca/p.kokrs)
+    @Semantics.fiscal.period: true
+    FiscalPeriod,                                //Posting period (acdoca/p.poper)
+
+//--Fields via associations
+    _GLAccountInChartOfAccounts.GLAccountGroup,    //G/L Account Group (ska1.ktoks)
+    _GLAccountInChartOfAccounts.IsProfitLossAccount,  //Opposite of "Indicator: Account is a balance sheet account?" (ska1.xbilk)
+
+//--Associations to be passed on to the query
+    _CompanyCode,
+    _ProfitCenter,
+    _GLAccountInCompanyCode
+}

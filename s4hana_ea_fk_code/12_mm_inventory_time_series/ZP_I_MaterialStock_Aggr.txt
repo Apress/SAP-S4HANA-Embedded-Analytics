@@ -1,0 +1,98 @@
+/* Freek Keijzer, myBrand, 21.09.2020
+Based on standard SAP view I_MaterialStock_Aggr.
+Custom enhancements:
+- Additional key field StockChangeCategory to be passed on to views with time series
+- Counter for Material Document Items
+--------------------------------------------------------
+Change-log: 
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'MM: I_MaterialStock_Aggr (enhanced)'
+@AbapCatalog.sqlViewName: 'ZIMATSTOCKAGGR'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZP_I_MaterialStock_Aggr 
+  as select from ZB_I_MaterialDocumentRecord
+  association [1..1] to I_UnitOfMeasure          as _UnitOfMeasure          on $projection.MaterialBaseUnit = _UnitOfMeasure.UnitOfMeasure
+{
+      // All fields have to be defined as key field and quantity/value have to be summarized on this lowest level
+      // in addition to the annotation for aggregation (#SUM)
+      // This is especiall required for consumption views used by users with restricted authorization to get the right results
+      // (just because right now an INNER JOIN is created which may multiply the result set and hence the aggregate is wrong)
+
+      // Stock Identifier
+  key StockIdentifyingMaterial                                                                                                        as Material,
+  key Plant                                                                                                                           as Plant,
+  key cast(StockIdfgStorageLocation as lgort_d)                                                                                       as StorageLocation,
+  key StockIdentifyingBatch                                                                                                           as Batch,
+  key SpecialStockIdfgSupplier                                                                                                        as Supplier,
+  key SpecialStockIdfgSalesOrder                                                                                                      as SDDocument,
+  key SpecialStockIdfgSalesOrderItem                                                                                                  as SDDocumentItem,
+  key SpecialStockIdfgWBSElement                                                                                                      as WBSElementInternalID,
+  key SpecialStockIdfgCustomer                                                                                                        as Customer,
+  key SpecialStockIdfgStockOwner, 
+  key InventoryStockType                                                                                                              as InventoryStockType,
+  key InventorySpecialStockType                                                                                                       as InventorySpecialStockType,
+      // Further Stock Groups
+      @Semantics.fiscal.yearVariant: true
+  key FiscalYearVariant                                                                                                               as FiscalYearVariant,
+      @Semantics.businessDate.at: true
+  key PostingDate                                                                                                                     as MatlDocLatestPostgDate,
+      // Units
+      @Semantics.unitOfMeasure
+  key MaterialBaseUnit                                                                                                                as MaterialBaseUnit,
+  key CostEstimate,
+//-------------------------------------------------------------------------------------------------
+//------Start of custom enhancement, part 1/1
+//-------------------------------------------------------------------------------------------------
+//----Additional key field to be passed on to views with time series
+  key StockChangeCategory,
+
+//----Counter for Material Document Items
+    sum(CountMatDocPos) as CountMatDocPos,       //No Material Document Items
+//-------------------------------------------------------------------------------------------------
+//------End of custom enhancement, part 1/1
+//-------------------------------------------------------------------------------------------------
+
+      CompanyCode                                                                                                                     as CompanyCode,
+
+      // Quantities
+      @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+      @DefaultAggregation : #SUM
+      cast(sum(MatlStkChangeQtyInBaseUnit) as nsdm_stock_qty preserving type)                                                                         as MatlWrhsStkQtyInMatlBaseUnit,
+      @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+      @DefaultAggregation : #SUM
+      cast(sum(MatlCnsmpnQtyInMatlBaseUnit) as nsdm_consumption_qty preserving type)                                                                  as MatlCnsmpnQtyInMatlBaseUnit,
+      @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+      @DefaultAggregation : #SUM
+      cast(sum(case when  MatlStkChangeQtyInBaseUnit > 0 then MatlStkChangeQtyInBaseUnit else 0 end) as nsdm_stock_increase_qty preserving type)      as MatlStkIncrQtyInMatlBaseUnit,
+      @Semantics.quantity.unitOfMeasure: 'MaterialBaseUnit'
+      @DefaultAggregation : #SUM
+      cast(sum(case when  MatlStkChangeQtyInBaseUnit < 0 then abs(MatlStkChangeQtyInBaseUnit) else 0 end) as nsdm_stock_decrease_qty preserving type) as MatlStkDecrQtyInMatlBaseUnit,
+
+      _UnitOfMeasure
+}
+where
+  MaterialBaseUnit <> ''
+group by
+  StockIdentifyingMaterial,
+  Plant,
+  StockIdfgStorageLocation,
+  StockIdentifyingBatch,
+  SpecialStockIdfgSupplier,
+  SpecialStockIdfgSalesOrder,
+  SpecialStockIdfgSalesOrderItem,
+  SpecialStockIdfgWBSElement,
+  SpecialStockIdfgCustomer,
+  SpecialStockIdfgStockOwner,
+  InventoryStockType,
+  InventorySpecialStockType,
+  CompanyCode,
+  FiscalYearVariant,
+  PostingDate,
+  MaterialBaseUnit,
+  CostEstimate,
+  StockChangeCategory

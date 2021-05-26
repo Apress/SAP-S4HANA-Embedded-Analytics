@@ -1,0 +1,360 @@
+/* Freek Keijzer, myBrand, 20.03.2020
+Cube-view for financial analysis Actuals + Plan + Commitments.
+Source tables:
+ACDOCA - "Universal Journal Entry Line Items"
+ACDOCP - "Plan Data Line Items"
+COOI   - "Commitments Management: Line Items"
+EKKN   - "Account Assignment in Purchasing Document"
+
+Enrichments:
+- Attributes of G/L Account as separate dimension
+- Attributes of Purchasing Document as separate dimension
+- Conversion of WBSElementInternalID to CHAR-8 to switch off output
+  conversion routine "Conversion Internal > External WBS Element Number"
+  (CONVERSION_EXIT_ABPSP_OUTPUT).
+- Various fields renamed to facilitate "Jump To" functions,
+  e.g. acdoca.belnr -> AccountingDocument
+
+Layered structure of CDS-views (CDS-views only delivering attributes or texts are not shown):
+  ZC_FI_ACDOCAPCOOI                  - Cube-view
+  |- ZP_FI_ACDOCAPCOOI               - Enrichment view
+  |  |- ZP_FI_ACDOCAPCOOI_UN         - Union
+  |  |  |- ZB_FIGL_ACDOCA            - Basic view Actuals
+  |  |  |  |- acdoca
+  |  |  |- ZB_FIGL_ACDOCP            - Basic view Plan
+  |  |  |  |- acdocp
+  |  |  |- ZB_PUR_COOI               - Basic view Commitments
+  |  |  |  |- cooi
+  |  |  |  |- ekkn
+  |  |  |  |- tka01
+  |  |- I_WBSElementBasicData        - Master data of WBS-element
+  |  |  |- prps, proj
+  |  |- I_CalendarDate               - Time characteristics based on Posting Date
+  |  |  |- scal_tt_date
+  |  |- ZB_PS_AFVC_CAUFV             - Description and WBS-el.of Network Activity
+  |  |  |- afvc
+  |  |  |- caufv
+  |  |  |- prps
+  |  |- ZA_FI_RACCT_HIER_PAR         - Flattened Hierarchy G/L Account
+  |     |- ...
+  |        |- ska1
+  |        |- fagl_011zc
+  |        |- fagl_011pc
+  |- I_GLAccountInChartOfAccounts    - Attributes of G/L Account
+  |  |- ska1
+  |- I_PurchasingDocument            - Attributes of Purchasing Document
+     |- ekko
+--------------------------------------------------------
+Change-log: 
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'FI: Fin.Analysis Actuals+Plan+Commitm.'
+@AbapCatalog.sqlViewName: 'ZCFIACDOCAPCOOI'
+
+@Analytics: { dataCategory: #CUBE, dataExtraction.enabled: true }
+@VDM.viewType: #COMPOSITE
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZC_FI_ACDOCAPCOOI as select from ZP_FI_ACDOCAPCOOI
+//--Associations to SAP-delivered master data views
+  association[0..1] to I_CompanyCode         as _CompanyCode            on $projection.CompanyCode            = _CompanyCode.CompanyCode
+  association[0..1] to I_ControllingArea     as _ControllingArea        on $projection.ControllingArea        = _ControllingArea.ControllingArea
+  association[0..*] to I_CostCenter          as _CostCenter             on $projection.ControllingArea        = _CostCenter.ControllingArea and
+                                                                           $projection.CostCenter             = _CostCenter.CostCenter
+  association[0..*] to I_ProfitCenter        as _ProfitCenter           on $projection.ControllingArea        = _ProfitCenter.ControllingArea and
+                                                                           $projection.ProfitCenter           = _ProfitCenter.ProfitCenter
+  association[0..1] to I_InternalOrder       as _Order                  on $projection.InternalOrder          = _Order.InternalOrder
+  association[0..*] to I_DebitCreditCodeText as _DebitCreditText        on $projection.drcrk                  = _DebitCreditText.DebitCreditCode
+  association[0..*] to I_AccountingDocumentTypeText as _AccDocTypeText  on $projection.AccountingDocumentType = _AccDocTypeText.AccountingDocumentType
+  association[0..*] to I_AssetClassText      as _AssetClassText         on $projection.anlkl                  = _AssetClassText.AssetClass
+  association[0..*] to I_LedgerText          as _LedgerText             on $projection.Ledger                 = _LedgerText.Ledger
+  association[0..*] to I_FinancialTransactionTypeT as _FinTransTypeText on $projection.rmvct                  = _FinTransTypeText.FinancialTransactionType
+  association[0..1] to I_Supplier            as _Supplier               on $projection.lifnr                  = _Supplier.Supplier
+  association[0..1] to I_Customer            as _Customer               on $projection.kunnr                  = _Customer.Customer
+  association[0..1] to I_Plant               as _Plant                  on $projection.werks                  = _Plant.Plant
+  association[0..1] to I_Material            as _Material               on $projection.matnr                  = _Material.Material
+  association[0..1] to I_WBSElement          as _WBSElement             on $projection.WBSElement             = _WBSElement.WBSElement
+  association[0..1] to I_CompanyCode         as _CompCodeWBS            on $projection.WBSElement_CompanyCode = _CompCodeWBS.CompanyCode
+  association[0..*] to I_Projecttypetext     as _ProjectTypeText        on $projection.ProjectType            = _ProjectTypeText.ProjectType
+  association[0..1] to I_Project             as _Project                on $projection.Project                = _Project.Project                                                                                         
+  association[0..1] to I_WBSElement          as _WBSElementNwa          on $projection.WBSElementNwa          = _WBSElementNwa.WBSElement
+  association[0..1] to I_GLAccountInChartOfAccounts as _GLAccount       on $projection.ChartOfAccounts        = _GLAccount.ChartOfAccounts and
+                                                                           $projection.GLAccount              = _GLAccount.GLAccount
+  association[0..1] to I_PurchasingDocument  as _PurchasingDocument     on $projection.PurchasingDocument     = _PurchasingDocument.PurchasingDocument
+
+//--Associations to custom master data views
+  association[0..*] to ZT_CA_PartnerCompany  as _PartnerCompanyText     on $projection.rassc                  = _PartnerCompanyText.PartnerCompany
+  association[0..*] to ZT_FI_FISCPER         as _FiscPerText            on $projection.FiscalPeriod           = _FiscPerText.FiscPer
+  association[0..*] to ZT_FI_CATEGORY        as _CategoryText           on $projection.category               = _CategoryText.Category
+  association[0..*] to ZT_CA_USRID           as _UsnamText              on $projection.usnam                  = _UsnamText.Usrid
+  association[0..*] to ZT_PS_Network         as _NetworkText            on $projection.nplnr                  = _NetworkText.Network
+  association[0..*] to ZT_FI_AWTYP           as _AwtypText              on $projection.awtyp                  = _AwtypText.Awtyp
+  association[0..*] to ZT_FI_ERGSL_NS00      as _Ergsl01Text            on $projection.ergsl_lev01            = _Ergsl01Text.Ergsl
+  association[0..*] to ZT_FI_ERGSL_NS00      as _Ergsl02Text            on $projection.ergsl_lev02            = _Ergsl02Text.Ergsl
+  association[0..*] to ZT_FI_ERGSL_NS00      as _Ergsl03Text            on $projection.ergsl_lev03            = _Ergsl03Text.Ergsl
+  association[0..*] to ZT_FI_ERGSL_NS00      as _Ergsl04Text            on $projection.ergsl_lev04            = _Ergsl04Text.Ergsl
+  association[0..*] to ZT_FI_ERGSL_NS00      as _Ergsl05Text            on $projection.ergsl_lev05            = _Ergsl05Text.Ergsl
+
+{
+//Key figures, currencies, units
+    
+//--Amount Actual/Plan
+//    @Semantics.amount.currencyCode: 'rkcur'      //--use this line to display currency with amount
+    @DefaultAggregation: #SUM
+    @EndUserText.label: 'Amount Act/Pln'
+    ksl,                                         //Amount in Global Currency (acdoca/acdocp.ksl)
+    @EndUserText.label: 'Curr.Act/Pln'
+    rkcur,                                       //Global Currency (acdoca/acdocp.rkcur)
+
+//--Quantity Actual/Plan
+    @Semantics.quantity.unitOfMeasure: 'quant_ap_unit'
+    @DefaultAggregation: #SUM
+    @EndUserText.label: 'Qty Act/Pln'
+    quant_ap,                                    //Quantity (acdoca.msl/acdocp.vmsl -> quant_ap)
+    @EndUserText.label: 'UoM Qty Act/Pln'
+    quant_ap_unit,                               //UoM for Quantity (acdoca.runit/acdocp.rvunit -> quant_ap_unit)
+
+//--Amount Commitment Actual/Plan
+//    @Semantics.amount.currencyCode: 'tka01_cur'  //--use this line to display currency with amount
+    @DefaultAggregation: #SUM
+    @EndUserText.label: 'Amount Com'
+    wkgbtr,                                      //Total Value (cooi.wkgbtr)
+//    @Semantics.amount.currencyCode: 'tka01_cur'  //--use this line to display currency with amount
+    @DefaultAggregation: #SUM
+    @EndUserText.label: 'Amount Com Pln'
+    orgwtk,                                      //Planned Value (cooi.orgwtk)
+    @EndUserText.label: 'Curr.Com (Pln)'
+    tka01_cur,                                   //Currency Key (tka01.waers)
+
+//--Quantity Commitment Actual/Plan
+    @Semantics.quantity.unitOfMeasure: 'meinh_cooi'
+    @DefaultAggregation: #SUM
+    @EndUserText.label: 'Qty Com'
+    megbtr,                                      //Total Quantity (cooi.megbtr)
+    @Semantics.quantity.unitOfMeasure: 'meinh_cooi'
+    @DefaultAggregation: #SUM
+    @EndUserText.label: 'Qty Com Pln'
+    gesmng,                                      //Planned Quantity (cooi.gesmng)
+    @EndUserText.label: 'UoM Qty Com (Pln)'
+    meinh_cooi,                                  //Unit of Measure (cooi.meinh)
+
+//--Generic counter
+    @DefaultAggregation: #SUM
+    @EndUserText.label: 'No.Records'
+    Counter,                                     //Generic counter for records in table/view
+
+//Characteristics
+    @EndUserText.label: 'Source (ACDOCA/ACDOCP/COOI)'
+    Source,                                      //Source = 'ACDOCA', 'ACDOCP' or 'COOI'
+
+//--Fields from table Actuals ACDOCA
+    @ObjectModel.text.association: '_LedgerText'
+    rldnr as Ledger,                             //Ledger in General Ledger Accounting (acdoca/acdocp.rldnr)
+    @ObjectModel.foreignKey.association: '_CompanyCode'
+    rbukrs as CompanyCode,                       //Company Code (acdoca/acdocp.rbukrs, cooi.bukrs)
+    gjahr as FiscalYear,                         //Fiscal Year (acdoca/acdocp/cooi.gjahr) 
+    belnr as AccountingDocument,                 //Accounting Document (acdoca.belnr) 
+    docln as AccountingDocumentItem,             //Accounting Document Item (acdoca.docln)
+    @ObjectModel.text.association: '_FinTransTypeText'
+    rmvct,                                       //Transaction type (acdoca/acdocp.rmvct)
+    @ObjectModel.text.association: '_AwtypText'
+    awtyp,                                       //Reference procedure (acdoca/acdocp.awtyp, cooi.rftyp)
+    @ObjectModel.foreignKey.association: '_GLAccount'
+    racct as GLAccount,                          //G/L Account (acdoca/acdocp.racct/cooi.sakto)
+    @ObjectModel.foreignKey.association: '_CostCenter'
+    rcntr as CostCenter,                         //Cost Center (acdoca/acdocp.rcntr, ekkn.kostl)
+    @ObjectModel.foreignKey.association: '_ProfitCenter'
+    prctr as ProfitCenter,                       //Profit Center (acdoca/acdocp/ekkn.prctr)
+    rbusa,                                       //Business Area (acdoca/acdocp.rbusa)
+    @ObjectModel.foreignKey.association: '_ControllingArea'
+    kokrs as ControllingArea,                    //Controlling Area (acdoca/acdocp/cooi.kokrs)
+    @ObjectModel.text.association: '_PartnerCompanyText'
+    rassc,                                       //Company ID of trading partner (acdoca/acdocp.rassc, cooi.vbund)
+    @ObjectModel.text.association: '_DebitCreditText'
+    drcrk,                                       //Debit/Credit Indicator (acdoca.drcrk, acdocp.co_belkz/cooi.beknz -> drcrk)
+    @EndUserText.label: 'Fiscal Period (SAP)'
+    poper,                                       //Posting period (acdoca/acdocp.poper, cooi.perio)
+    @ObjectModel.text.association: '_FiscPerText'
+    @EndUserText.label: 'Fiscal Period'
+    FiscPer as FiscalPeriod,                     //Posting period (acdoca/acdocp.poper, cooi.perio) as CHAR-3
+    periv as FiscalYearVariant,                  //Fiscal Year Variant (acdoca/acdocp.periv)
+    fiscyearper as FiscalyearPeriod,             //Period/year (acdoca/acdocp.fiscyearper, cooi.gjahr+perio)
+    budat as PostingDate,                        //Posting Date (acdoca/acdocp.budat), Expected Debit Date (cooi.budat)
+    bldat,                                       //Document Date (acdoca/cooi.bldat)
+    @ObjectModel.text.association: '_AccDocTypeText'
+    blart as AccountingDocumentType,             //Document type (acdoca.blart)
+    zuonr,                                       //Assignment number (acdoca.zuonr)
+    bschl,                                       //Posting Key (acdoca.bschl)
+    @ObjectModel.text.association: '_UsnamText'
+    usnam,                                       //User Name (acdoca/acdocp.usnam)
+    timestamp,                                   //UTC-timestamp (acdoca/cooi.timestamp)
+    ktopl as ChartOfAccounts,                    //Chart of Accounts (acdoca/acdocp.ktopl)
+    @EndUserText.label: 'Pur.doc.'
+    ebeln as PurchasingDocument,                 //Purchasing Document (acdoca.ebeln, cooi.refbn = ebeln)
+    @EndUserText.label: 'Pur.doc.pos'
+    ebelp,                                       //Purchasing Document Item (acdoca.ebelp, cooi.rfpos = ebelp)
+    @EndUserText.label: 'Pur.doc.pos.text'
+    sgtxt,                                       //Item Text (acdoca/acdocp/cooi.sgtxt)
+    @ObjectModel.foreignKey.association: '_Material'
+    matnr,                                       //Material (acdoca/acdocp/cooi.matnr)
+    @ObjectModel.foreignKey.association: '_Plant'
+    werks,                                       //Plant (acdoca/acdocp.werks)
+    @ObjectModel.foreignKey.association: '_Supplier'
+    lifnr,                                       //Vendor (acdoca/cooi.lifnr)
+    @ObjectModel.foreignKey.association: '_Customer'
+    kunnr,                                       //Customer (acdoca/acdocp.kunnr)
+    koart,                                       //Account Type (acdoca.koart)
+    mwskz,                                       //Tax on sales/purchases code (acdoca.mwskz)
+    hbkid,                                       //Short key for a house bank (acdoca.hbkid)
+    hktid,                                       //ID for account details (acdoca.hktid)
+    xopvw,                                       //Indicator: Open Item Management? (acdoca.xopvw)
+    augdt,                                       //Clearing Date (acdoca.augdt)
+    augbl,                                       //Document Number of the Clearing Document (acdoca.augbl)
+    auggj,                                       //Fiscal Year of Clearing Document (acdoca.auggj)
+    anln1,                                       //Main Asset Number (acdoca.anln1)
+    anln2,                                       //Asset Subnumber (acdoca.anln2)
+    anlgr,                                       //Group Asset (acdoca.anlgr)
+    anlgr2,                                      //Subnumber of Group Asset (acdoca.anlgr2)
+    @ObjectModel.text.association: '_AssetClassText'
+    anlkl,                                       //Asset Class (acdoca.anlkl)
+    bwtar,                                       //Valuation Type (acdoca.bwtar)
+    bwkey,                                       //Valuation area (acdoca.bwkey)
+    objnr,                                       //Object number (acdoca/acdocp/cooi.objnr)
+    accas,                                       //Account Assignment (acdoca.accas)
+    accasty,                                     //Object Type (acdoca/acdocp.accasty)
+    lstar,                                       //Activity Type (acdoca/acdocp.lstar)
+    @ObjectModel.foreignKey.association: '_Order'
+    aufnr as InternalOrder,                      //Order Number (acdoca/acdocp/ekkn.aufnr)
+    autyp,                                       //Order category (acdoca.autyp)
+    @EndUserText.label: 'WBS-element (number)'
+    cast(WBSElementInternalID as abap.char(8)) as WBSElementInternalID,  //WBS-element, NUMC-8 (acdoca/acdocp/ekkn.ps_psp_pnr)
+    @ObjectModel.text.association: '_NetworkText'
+    nplnr,                                       //Network Number (acdoca.nplnr)
+    nplnr_vorgn,                                 //Network Activity (acdoca.nplnr_vorgn)
+    paccas,                                      //Partner Account Assignment (acdoca.paccas)
+    paccasty,                                    //Partner Object Type (acdoca/acdocp.paccasty)
+    matkl,                                       //Product Sold Group (acdoca/acdocp/cooi.matkl)
+
+//--Fields only in table Plan ACDOCP
+    reqtsn,                                      //Request Transaction Sequence Number (acdocp.reqtsn)
+    datapakid,                                   //Data packet number (acdocp.datapakid)
+    record,                                      //Data record number (acdocp.record)
+    @ObjectModel.text.association: '_CategoryText'
+    @EndUserText.label: 'Plan Category'
+    category,                                    //Category (acdocp.category)
+
+//--Fields from view Commitments ZB_PUR_COOI
+    @EndUserText.label: 'Del.ind.pur.doc'
+    loekz_cooi,                                  //Deletion indicator in purchasing document (cooi.loekz)
+
+//--Creation Date determined via different methods
+    @EndUserText.label: 'Creation Date'
+    zcpudt,                                      //Creation Date (acdoca.timestamp/acdocp.reqtsn/cooi.bldat)
+
+//--Time characteristics from view I_Calendardate based on Posting Date (acdoca/acdocp.budat) and Expected Debit Date (cooi.budat)    
+    @EndUserText.label: 'Cal.Week w/ Year'
+    YearWeek,                                    //Year Week (scal_tt_date.yearweek)
+    @EndUserText.label: 'Cal.Month w/ Year'
+    YearMonth,                                   //Year Month (scal_tt_date.yearmonth)
+    @EndUserText.label: 'Cal.Quarter w/ Year'
+    YearQuarter,                                 //Year Quarter (scal_tt_date.yearquarter)
+    @EndUserText.label: 'Cal.Year'
+    CalendarYear,                                //Calendar Year (scal_tt_date.calendaryear)
+    @EndUserText.label: 'Cal.Month w/o Year'
+    CalendarMonth,                               //Calendar Month (scal_tt_date.calendarmonth)
+
+//--Fields from view I_WBSElementBasicData
+    @ObjectModel.foreignKey.association: '_WBSElement'
+    @EndUserText.label: 'WBS-element'
+    WBSElement,                                  //WBS-element, CHAR-24 (prps.posid)
+    @ObjectModel.foreignKey.association: '_Project'
+    Project,                                     //Project, CHAR-24 (proj.pspid)
+    WBSDescription,                              //WBS-element description (prps.post1)
+    @ObjectModel.foreignKey.association: '_CompCodeWBS'
+    @EndUserText.label: 'CoCode WBS-el.'
+    WBSElement_CompanyCode,                      //Company Code of WBS-element (prps.pbukr)
+    @ObjectModel.text.association: '_ProjectTypeText'
+    ProjectType,                                 //Project Type (prps.prart)
+        
+//--Fields from view ZB_PS_AFVC_CAUFV
+    @EndUserText.label: 'Network activity descr.'
+    NplnrVorgnText,                              //Network Activity description (afvc.ltxa1)
+    @ObjectModel.foreignKey.association: '_WBSElementNwa'
+    @EndUserText.label: 'WBS-element NWA'
+    WBSElementNwa,                               //WBS-element of Network Activity (prps.posid <- afvc.projn)
+
+//--Fields from view ZA_FI_RACCT_HIER_PAR, hierarchy 'NS00'
+    @EndUserText.label: 'G/L Acc.hier.level'
+    ergsl_stufe,                                 //Financial Statement Item Hierarchy Level (fagl_011pc.stufe)
+    @EndUserText.label: 'G/L Acc.hier.lev.0'
+    ergsl_lev00,                                 //Financial Statement Item (fagl_011zc.ergsl) level 0   
+    @ObjectModel.text.association: '_Ergsl01Text'
+    @EndUserText.label: 'G/L Acc.hier.lev.1'
+    ergsl_lev01,                                 //Financial Statement Item (fagl_011zc.ergsl) level 1   
+    @ObjectModel.text.association: '_Ergsl02Text'
+    @EndUserText.label: 'G/L Acc.hier.lev.2'
+    ergsl_lev02,                                 //Financial Statement Item (fagl_011zc.ergsl) level 2   
+    @ObjectModel.text.association: '_Ergsl03Text'
+    @EndUserText.label: 'G/L Acc.hier.lev.3'
+    ergsl_lev03,                                 //Financial Statement Item (fagl_011zc.ergsl) level 3   
+    @ObjectModel.text.association: '_Ergsl04Text'
+    @EndUserText.label: 'G/L Acc.hier.lev.4'
+    ergsl_lev04,                                 //Financial Statement Item (fagl_011zc.ergsl) level 4   
+    @ObjectModel.text.association: '_Ergsl05Text'
+    @EndUserText.label: 'G/L Acc.hier.lev.5'
+    ergsl_lev05,                                 //Financial Statement Item (fagl_011zc.ergsl) level 5   
+
+//--Fields from view I_GLAccountInChartOfAccounts
+    _GLAccount.ChartOfAccounts as ChartOfAccountsGLAcc,  //(included in selection list for technical reasons)
+    @EndUserText.label: 'Balance Accounts?'
+    _GLAccount.IsBalanceSheetAccount,            //Indicator: Account is a balance sheet account? (ska1.xbilk)
+    _GLAccount.GLAccountGroup,                   //G/L Account Group (ska1.ktoks)
+    _GLAccount.GLAccountType,                    //Type of a General Ledger Account (ska1.glaccount_type)
+    @EndUserText.label: 'Profit&Loss Accounts?'
+    _GLAccount.IsProfitLossAccount,              //(ska1.xbilk)-> Indicator: Account is a profit & loss account?
+
+//--Fields from view I_PurchasingDocument
+    _PurchasingDocument.PurchasingDocumentCategory,  //Purchasing Document Category (ekko.bstyp)
+    _PurchasingDocument.PurchasingDocumentType,      //Purchasing Document Type (ekko.bsart)
+
+//Associations to be passed on to the queries
+    _CompanyCode,
+    _ControllingArea,
+    _CostCenter,
+    _ProfitCenter,
+    _Order,
+    _DebitCreditText,
+    _AccDocTypeText,
+    _AssetClassText,
+    _LedgerText,
+    _FinTransTypeText,
+    _Supplier,
+    _Customer,
+    _Plant,
+    _Material,
+    _WBSElement,
+    _CompCodeWBS,
+    _ProjectTypeText,
+    _Project,
+    _WBSElementNwa,
+    _GLAccount,
+    _GLAccount._GLAccountType,
+    _GLAccount._GLAccountGroup,
+    _PurchasingDocument,
+    _PurchasingDocument._PurchasingDocumentCategory,
+    _PurchasingDocument._PurchasingDocumentType,
+
+    _PartnerCompanyText,
+    _FiscPerText,
+    _CategoryText,
+    _UsnamText,
+    _NetworkText,
+    _AwtypText,
+    _Ergsl01Text,
+    _Ergsl02Text,
+    _Ergsl03Text,
+    _Ergsl04Text,
+    _Ergsl05Text
+}

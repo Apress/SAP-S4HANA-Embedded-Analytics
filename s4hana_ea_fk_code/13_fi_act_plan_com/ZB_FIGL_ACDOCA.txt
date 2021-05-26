@@ -1,0 +1,83 @@
+/* Freek Keijzer, myBrand, 26.08.2019
+Basic view on following table:
+ACDOCA - "Universal Journal Entry Line Items",
+--------------------------------------------------------
+Change-log: 
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'FI-GL: Data from ACDOCA'
+@AbapCatalog.sqlViewName: 'ZBFIGLACDOCA'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZB_FIGL_ACDOCA as select from acdoca
+{
+key rldnr,                                       //Ledger in General Ledger Accounting (acdoca.rldnr)
+key rbukrs,                                      //Company Code (acdoca.rbukrs)
+key gjahr,                                       //Fiscal Year (acdoca.gjahr)
+key belnr,                                       //Accounting Document (acdoca.belnr)
+key docln,                                       //Accounting Document Item (acdoca.docln)
+    rmvct,                                       //Transaction type (acdoca.rmvct)
+    awtyp,                                       //Reference procedure (acdoca.awtyp)
+    racct,                                       //Account Number (acdoca.racct)
+    rcntr,                                       //Cost Center (acdoca.rcntr)
+    prctr,                                       //Profit Center (acdoca.prctr)
+    rbusa,                                       //Business Area (acdoca.rbusa)
+    kokrs,                                       //Controlling Area (acdoca.kokrs)
+    rassc,                                       //Company ID of trading partner (acdoca.rassc)
+    ksl,                                         //Amount in Global Currency (acdoca.ksl)
+    rkcur,                                       //Global Currency (acdoca.rkcur)
+    msl,                                         //Quantity (acdoca.msl)
+    runit,                                       //UoM for Quantity (acdoca.runit)
+    drcrk,                                       //Debit/Credit Indicator (acdoca.drcrk)
+    poper,                                       //Posting period (acdoca.poper)
+    periv,                                       //Fiscal Year Variant (acdoca.periv)
+    fiscyearper,                                 //Period/year (acdoca.fiscyearper)
+    budat,                                       //Posting Date (acdoca.budat)
+    bldat,                                       //Document Date (acdoca.bldat)
+    blart,                                       //Document type (acdoca.blart)
+    zuonr,                                       //Assignment number (acdoca.zuonr)
+    bschl,                                       //Posting Key (acdoca.bschl)
+    usnam,                                       //User Name (acdoca.usnam)
+    timestamp,                                   //UTC-timestamp (acdoca.timestamp)
+    ktopl,                                       //Chart of Accounts (acdoca.ktopl)
+    ebeln,                                       //Purchasing Document (acdoca.ebeln)
+    ebelp,                                       //Purchasing Document Item (acdoca.ebelp)
+    sgtxt,                                       //Item Text (acdoca.sgtxt)
+    matnr,                                       //Material (acdoca.matnr)
+    werks,                                       //Plant (acdoca.werks)
+    lifnr,                                       //Vendor (acdoca.lifnr)
+    kunnr,                                       //Customer (acdoca.kunnr)
+    koart,                                       //Account Type (acdoca.koart)
+    mwskz,                                       //Tax on sales/purchases code (acdoca.mwskz)
+    hbkid,                                       //Short key for a house bank (acdoca.hbkid)
+    hktid,                                       //ID for account details (acdoca.hktid)
+    xopvw,                                       //Indicator: Open Item Management? (acdoca.xopvw)
+    augdt,                                       //Clearing Date (acdoca.augd)
+    augbl,                                       //Document Number of the Clearing Document (acdoca.augbl)
+    auggj,                                       //Fiscal Year of Clearing Document (acdoca.augg)
+    anln1,                                       //Main Asset Number (acdoca.anln1)
+    anln2,                                       //Asset Subnumber (acdoca.anln2)
+    anlgr,                                       //Group Asset (acdoca.anlgr)
+    anlgr2,                                      //Subnumber of Group Asset (acdoca.anlgr2)
+    anlkl,                                       //Asset Class (acdoca.anlkl)
+    bwtar,                                       //Valuation Type (acdoca.bwtar)
+    bwkey,                                       //Valuation area (acdoca.bwkey)
+    objnr,                                       //Object number (acdoca.objnr)
+    accas,                                       //Account Assignment (acdoca.accas)
+    accasty,                                     //Object Type (acdoca.accasty)
+    lstar,                                       //Activity Type (acdoca.lstar)
+    aufnr,                                       //Order Number (acdoca.aufnr)
+    autyp,                                       //Order category (acdoca.autyp)
+    ps_psp_pnr,                                  //WBS-element, NUMC-8 (acdoca.ps_psp_pnr)
+    nplnr,                                       //Network Number (acdoca.nplnr)
+    nplnr_vorgn,                                 //Network activity (acdoca.nplnr_vorgn)
+    paccas,                                      //Partner Account Assignment (acdoca.paccas)
+    paccasty,                                    //Partner Object Type (acdoca.paccasty)
+    matkl,                                       //Product Sold Group (acdoca.matkl)
+
+//--Generic counter
+    1 as Counter                                 //Generic counter for records in table/view
+}

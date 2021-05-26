@@ -1,0 +1,50 @@
+/* Freek Keijzer, myBrand, 10.01.2021
+Query-view for financial actual-plan comparison.
+Business requirement: user-story 12345
+--------------------------------------------------------
+Change-log:
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'FI-GL: Actual-Plan Comparison'
+@AbapCatalog.sqlViewName : 'ZQFIGLACTPLANCMP'
+
+@VDM.viewType: #CONSUMPTION
+@Analytics.query: true
+@OData.publish: true
+
+define view ZQ_FIGL_ActPlanComp as select from ZC_FIGL_ActPlanComp
+{
+//--Key figures
+    @EndUserText.label: 'Actuals'
+    @AnalyticsDetails.query.decimals: 0
+    ActualAmountInGlobalCurrency,                //Amount in Global Currency (acdoca.ksl)
+    @AnalyticsDetails.query.decimals: 0
+    @EndUserText.label: 'Plan'
+    PlanAmountInGlobalCurrency,                  //Amount in Global Currency (acdocp.ksl)
+
+//--Characteristics initially in rows
+    @AnalyticsDetails.query.totals: #SHOW
+    @AnalyticsDetails.query.display: #KEY_TEXT
+    @AnalyticsDetails.query.axis:#ROWS
+    GLAccount,                                   //Account Number (acdoca/p.racct)
+ 
+//--Free characteristics
+    ChartOfAccounts,                             //Chart of Accounts (acdoca/p.ktopl)
+    @AnalyticsDetails.query.totals: #SHOW
+    @AnalyticsDetails.query.display: #KEY_TEXT
+    @Consumption.filter :{ selectionType: #SINGLE, multipleSelections: true, mandatory: false }
+    CompanyCode,                                 //Company Code (acdoca/p.bukrs)
+    FiscalPeriod,                                //Posting period (acdoca/p.poper)
+    @Consumption.filter :{ selectionType: #INTERVAL, multipleSelections: false, mandatory: true, defaultValue: '2020', defaultValueHigh: '2021' }
+    FiscalYear,                                  //Fiscal Year (acdoca/p.gjahr)
+    Ledger,                                      //Ledger in General Ledger Accounting (acdoca/p.rldnr)
+    PlanningCategory,                            //Category (acdocp.category, 'ACT01' for acdoca)
+    @AnalyticsDetails.query.display: #KEY_TEXT
+    ProfitCenter,                                //Profit Center (acdoca/p.prctr)
+    GLAccountGroup,                              //G/L Account Group (ska1.ktoks)
+    @Consumption.filter :{ selectionType: #SINGLE, multipleSelections: true, mandatory: true, defaultValue: 'X' }
+    IsProfitLossAccount                          //Opposite of "Indicator: Account is a balance sheet account?" (ska1.xbilk)
+}
+where Ledger = '0L'                                                and //--Only main ledger
+      (PlanningCategory = 'ACT01' or PlanningCategory = 'PLN_B01')     //--Only Actuals and 1 Plan category
+

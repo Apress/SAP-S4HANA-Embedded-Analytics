@@ -1,0 +1,57 @@
+/* Freek Keijzer, myBrand, 02.06.2020
+Preparation for composition of string.
+--------------------------------------------------------
+Change log:
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'LOG: Data for User Status Order, string'
+@AbapCatalog.sqlViewName: 'ZPLOGAUFKJESTSTR'
+
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZP_LOG_AUFK_JEST_Str as select from ZP_LOG_AUFK_JEST_Ag
+{
+    aufnr,
+    case
+      when sta01 = '' then ''
+      else                 sta01
+    end as str01,
+    case
+      when sta02 = ''                 then ''
+      when sta01 = '' and sta02 != '' then sta02
+      else                                 concat_with_space ('',sta02,1)
+    end as str02,
+    case
+      when sta03 = ''                                then ''
+      when sta01 = '' and sta02 = '' and sta03 != '' then sta03
+      else                                                concat_with_space ('',sta03,1)
+    end as str03,
+    case
+      when sta04 = ''                                               then ''
+      when sta01 = '' and sta02 = '' and sta03 = '' and sta04 != '' then sta04
+      else                                                               concat_with_space ('',sta04,1)
+    end as str04,
+    case
+      when sta05 = ''                                                              then ''
+      when sta01 = '' and sta02 = '' and sta03 = '' and sta04 = '' and sta05 != '' then sta05
+      else                                                                              concat_with_space ('',sta05,1)
+    end as str05,
+    case
+      when sta06 = ''                                                                             then ''
+      when sta01 = '' and sta02 = '' and sta03 = '' and sta04 = '' and sta05 = '' and sta06 != '' then sta06
+      else                                                                                             concat_with_space ('',sta06,1)
+    end as str06,
+    case
+      when sta07 = ''                                                                                            then ''
+      when sta01 = '' and sta02 = '' and sta03 = '' and sta04 = '' and sta05 = '' and sta06 = '' and sta07 != '' then sta07
+      else                                                                                                            concat_with_space ('',sta07,1)
+    end as str07,
+    case
+      when sta08 = ''                                                                                                           then ''
+      when sta01 = '' and sta02 = '' and sta03 = '' and sta04 = '' and sta05 = '' and sta06 = '' and sta07 = '' and sta08 != '' then sta08
+      else                                                                                                                           concat_with_space ('',sta08,1)
+    end as str08
+}
+

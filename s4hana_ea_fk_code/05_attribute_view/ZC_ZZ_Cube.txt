@@ -1,0 +1,17 @@
+@EndUserText.label: 'ZC_ZZ_Cube'
+@AbapCatalog.sqlViewName: 'ZXZZCUBE'
+@VDM.viewType: #COMPOSITE
+@Analytics.dataCategory: #CUBE
+define view ZC_ZZ_Cube as select from vibdbe
+  association[0..1] to ZA_RE_Swenr as _Swenr on $projection.bukrs = _Swenr.CompanyCode      and
+                                                $projection.swenr = _Swenr.REBusinessEntity
+{
+key vibdbe.bukrs, 
+    @ObjectModel.foreignKey.association: '_Swenr'
+key vibdbe.swenr,
+    _Swenr.sstdort, 
+    @DefaultAggregation: #SUM
+    1 as counter,
+    _Swenr,
+    _Swenr._RE_StdOrt
+}

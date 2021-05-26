@@ -1,0 +1,1 @@
+This view is an SAP standard view already present in your S/4HANA system.

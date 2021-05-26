@@ -1,0 +1,53 @@
+/* Freek Keijzer, myBrand, 17.01.2021
+Basic view for key figures Reservations.
+Business requirement: user-story 34567
+Source tables:
+RESB - "Reservation/dependent requirements"
+LIPS - "SD document: Delivery: Item data"
+--------------------------------------------------------
+Change-log:
+--------------------------------------------------------
+--------------------------------------------------------*/
+@EndUserText.label: 'MM: Data from RESB for Return List'
+@AbapCatalog.sqlViewName: 'ZBMMRETLISTRESB'
+
+@VDM.viewType: #BASIC
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+
+define view ZB_MM_RetListRESB as select from resb
+  left outer join lips
+    on lips.rsnum = resb.rsnum and
+       lips.rspos = resb.rspos and
+       lips.bwart = '531'
+{
+key resb.rsnum,                                  //Reservation Number (resb.rsnum)
+key resb.rspos,                                  //Reservation Item (resb.rspos)
+    resb.werks,                                  //Plant (resb.werks)
+    resb.lgort,                                  //Storage Location (resb.lgort)
+    resb.aufnr,                                  //Order Number (resb.aufnr)
+    resb.xloek,                                  //Item is deleted (resb.xloek)
+    resb.bwart,                                  //Movement type inventory management (resb.bwart)
+    resb.kzear,                                  //Final issue for this reservation (resb.kzear)
+    resb.matnr,                                  //Material Number (resb.matnr)
+    resb.bdmng,                                  //Requirement Quantity (resb.bdmng)
+    resb.meins,                                  //Base Unit of Measure (resb.meins)
+    resb.enmng,                                  //Quantity withdrawn (resb.enmng)
+    lips.vbeln,                                  //Delivery (lips.vbeln)
+    lips.posnr as vbelp,                         //Delivery Item (lips.posnr)
+    lips.bwtar,                                  //Valuation Type (lips.bwtar)
+    lips.spe_gen_elikz,                          //"Delivery Completed" Indicator (lips.spe_gen_elikz)
+    1 as Counter,                                //Counter (for Reservation Items)
+    case
+      when lips.vbeln != '' then 1
+      else                       0
+    end as CounterDel,                           //Counter for Delivery Items
+    case
+      when lips.vbeln != '' then concat(lips.vbeln,lips.posnr)
+      else                       'XXXXXXXXXXXXXXXX'
+    end as VbelnPos                              //Concatenated Delivery Number+Item, special value when empty for testing purposes
+}
+where resb.rsart  = ''    and  //--Key field "Record type" must be empty
+      resb.bwart  = '531' and  //--Only Movement Type '531' = 'Receipt by-product'
+      resb.aufnr != ''         //--Order must be filled
